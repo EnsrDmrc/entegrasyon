@@ -274,8 +274,25 @@ async def push_n11_stocks_to_shopify(background_tasks: BackgroundTasks, current_
                 inv = inv_res.scalars().first()
                 if inv:
                     try:
-                        # Bu işlem yavaştır, bu yüzden background task olarak çalışıyor
+                        # API'ye pushla
                         await asyncio.to_thread(s_adapter.update_product, prod.sku, None, inv.quantity)
+                        
+                        # Veritabanında Shopify stok kaydını da güncelle
+                        shop_inv_res = await session.execute(
+                            select(Inventory).where(Inventory.product_id == prod.id, Inventory.marketplace == "shopify")
+                        )
+                        shop_inv = shop_inv_res.scalars().first()
+                        if shop_inv:
+                            shop_inv.quantity = inv.quantity
+                        else:
+                            new_shop_inv = Inventory(
+                                product_id=prod.id,
+                                marketplace="shopify",
+                                quantity=inv.quantity
+                            )
+                            session.add(new_shop_inv)
+                        
+                        await session.commit()
                         success_count += 1
                     except Exception as e:
                         print(f"Shopify stock push error for {prod.sku}: {e}")
