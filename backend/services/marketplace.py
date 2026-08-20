@@ -203,7 +203,10 @@ class ShopifyAdapter(MarketplaceAdapter):
                         
         except Exception as e:
             print(f"[Shopify Order Sync Hatası]: {e}")
-       import zeep
+            
+        return fetched_orders
+
+import zeep
 
 class N11Adapter(MarketplaceAdapter):
     def __init__(self, api_key: str, api_secret: str):
