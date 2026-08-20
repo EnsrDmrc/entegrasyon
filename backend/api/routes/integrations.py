@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
@@ -241,6 +241,48 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
         sync_count += 1
 
     return {"message": "N11 ürünleri başarıyla senkronize edildi", "count": sync_count}
+
+@router.post("/sync/push-n11-stocks")
+async def push_n11_stocks_to_shopify(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # 1. Shopify entegrasyonunu bul
+    shopify_result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "shopify",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    shopify_int = shopify_result.scalars().first()
+    if not shopify_int or not shopify_int.api_key or not shopify_int.store_url:
+        raise HTTPException(status_code=400, detail="Shopify entegrasyonu bulunamadı.")
+        
+    s_adapter = ShopifyAdapter(api_key=str(shopify_int.api_key), store_url=str(shopify_int.store_url))
+    
+    # 2. Ürünleri ve N11 stoklarını bul
+    products_result = await db.execute(select(Product).where(Product.tenant_id == current_user.tenant_id))
+    products = products_result.scalars().all()
+    
+    async def run_push():
+        from core.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as session:
+            success_count = 0
+            for prod in products:
+                inv_res = await session.execute(
+                    select(Inventory).where(Inventory.product_id == prod.id, Inventory.marketplace == "n11")
+                )
+                inv = inv_res.scalars().first()
+                if inv:
+                    try:
+                        # Bu işlem yavaştır, bu yüzden background task olarak çalışıyor
+                        await asyncio.to_thread(s_adapter.update_product, prod.sku, None, inv.quantity)
+                        success_count += 1
+                    except Exception as e:
+                        print(f"Shopify stock push error for {prod.sku}: {e}")
+            print(f"Background Sync Finished: {success_count} items pushed to Shopify.")
+
+    background_tasks.add_task(run_push)
+    return {"message": "Stoklar arka planda Shopify'a aktarılmaya başlandı! Yaklaşık 2-3 dakika içinde tamamlanacaktır."}
 
 @router.post("/sync/n11/orders")
 async def sync_n11_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
