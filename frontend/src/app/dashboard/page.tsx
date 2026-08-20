@@ -15,7 +15,7 @@ export default function DashboardOverview() {
     const token = localStorage.getItem('token');
     if (token) {
       // Ürünleri Çek
-      fetch('http://localhost:8000/api/v1/users/me/products', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -38,7 +38,7 @@ export default function DashboardOverview() {
       .catch(console.error);
 
       // Siparişleri Çek
-      fetch('http://localhost:8000/api/v1/users/me/orders', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())

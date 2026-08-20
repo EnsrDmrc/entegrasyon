@@ -11,6 +11,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # Next.js frontend portu
+    allow_origin_regex=r"https://.*\.vercel\.app", # Vercel alan adlarına izin ver
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -17,7 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else {
       setIsAuthorized(true);
       // Backend'den profil bilgilerini al
-      fetch('http://localhost:8000/api/v1/users/me', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())

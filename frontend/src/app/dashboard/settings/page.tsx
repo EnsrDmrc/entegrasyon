@@ -31,7 +31,7 @@ export default function SettingsPage() {
     // Mevcut entegrasyonları getir
     const token = localStorage.getItem('token');
     if (token) {
-      fetch('http://localhost:8000/api/v1/integrations', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -56,7 +56,7 @@ export default function SettingsPage() {
     setShopifyMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/v1/integrations/sync/shopify', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -87,7 +87,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/users/me/password', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/integrations', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export default function SettingsPage() {
     setShopifyMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/v1/integrations/sync/shopify/orders', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -197,7 +197,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/integrations', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ export default function SettingsPage() {
     setN11Message(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/v1/integrations/sync/n11', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -246,7 +246,7 @@ export default function SettingsPage() {
     setN11Message(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/v1/integrations/sync/n11/orders', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
