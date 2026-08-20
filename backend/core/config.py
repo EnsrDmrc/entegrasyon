@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: Optional[str] = None
+    DATABASE_URI: Optional[str] = None
     POSTGRES_SERVER: Optional[str] = "localhost"
     POSTGRES_USER: Optional[str] = "postgres"
     POSTGRES_PASSWORD: Optional[str] = ""
@@ -23,8 +24,9 @@ class Settings(BaseSettings):
 
     @property
     def ASYNC_DATABASE_URI(self) -> str:
-        if self.DATABASE_URL:
-            url = self.DATABASE_URL
+        db_url = self.DATABASE_URL or self.DATABASE_URI
+        if db_url:
+            url = db_url
             if url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql+asyncpg://", 1)
             elif url.startswith("postgresql://"):
