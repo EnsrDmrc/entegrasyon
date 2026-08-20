@@ -214,8 +214,9 @@ class N11Adapter(MarketplaceAdapter):
             'appKey': api_key.strip(),
             'appSecret': api_secret.strip()
         }
-        self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl')
-        self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl')
+        settings = zeep.Settings(strict=False, xsd_ignore_sequence_order=True)
+        self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl', settings=settings)
+        self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl', settings=settings)
         
     def fetch_all_products(self) -> list:
         fetched_variants = []
