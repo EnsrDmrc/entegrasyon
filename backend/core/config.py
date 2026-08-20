@@ -6,14 +6,15 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Database
-    POSTGRES_SERVER: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    POSTGRES_PORT: str
+    DATABASE_URL: Optional[str] = None
+    POSTGRES_SERVER: Optional[str] = "localhost"
+    POSTGRES_USER: Optional[str] = "postgres"
+    POSTGRES_PASSWORD: Optional[str] = ""
+    POSTGRES_DB: Optional[str] = "entegrasyon_db"
+    POSTGRES_PORT: Optional[str] = "5432"
 
     # Redis
-    REDIS_URL: str
+    REDIS_URL: Optional[str] = "redis://localhost:6379/0"
 
     # Security
     SECRET_KEY: str
@@ -22,6 +23,13 @@ class Settings(BaseSettings):
 
     @property
     def ASYNC_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
