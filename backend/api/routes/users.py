@@ -1,0 +1,137 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from typing import List
+
+from core.database import get_db
+from core.security import pwd_context
+from api.deps import get_current_user
+from models.user import User
+from models.tenant import Tenant
+from models.product import Product
+from schemas import UserResponse, PasswordChange, ProductResponse
+
+router = APIRouter()
+
+@router.get("/me", response_model=UserResponse)
+async def get_my_profile(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # İlişkili tenant'ı da yükleyebiliriz veya basitçe:
+    result = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    tenant = result.scalars().first()
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "tenant_id": current_user.tenant_id,
+        "tenant": tenant
+    }
+
+@router.put("/me/password")
+async def change_password(
+    data: PasswordChange, 
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    if not pwd_context.verify(data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mevcut şifre hatalı")
+        
+    current_user.hashed_password = pwd_context.hash(data.new_password)
+    db.add(current_user)
+    await db.commit()
+    
+    return {"message": "Şifreniz başarıyla değiştirildi"}
+
+@router.get("/me/products", response_model=List[ProductResponse])
+async def get_my_products(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Sadece giriş yapan kullanıcının tenant'ına ait ürünleri getir (Multi-tenant izolasyonu)
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Product)
+        .where(Product.tenant_id == current_user.tenant_id)
+        .options(selectinload(Product.inventories))
+    )
+    products = result.scalars().all()
+    return products
+
+from schemas.schemas import ProductUpdateRequest
+from models.integration import MarketplaceIntegration
+from services.marketplace import ShopifyAdapter
+
+@router.put("/me/products/{product_id}")
+async def update_product(
+    product_id: int,
+    data: ProductUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from models.inventory import Inventory
+    
+    # Güvenlik kontrolü: Ürün bu tenant'a mı ait?
+    prod_result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.tenant_id == current_user.tenant_id)
+    )
+    product = prod_result.scalars().first()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
+
+    # Fiyat Güncellemesi
+    if data.price is not None:
+        product.price = data.price
+        db.add(product)
+
+    # Envanter (Stok) Güncellemesi
+    if data.quantity is not None:
+        inv_result = await db.execute(
+            select(Inventory).where(Inventory.product_id == product.id)
+        )
+        inventories = inv_result.scalars().all()
+        
+        if not inventories:
+            new_inv = Inventory(product_id=product.id, marketplace="manual", quantity=data.quantity)
+            db.add(new_inv)
+        else:
+            for inv in inventories:
+                inv.quantity = data.quantity
+                db.add(inv)
+                
+    await db.commit()
+
+    # Değişiklikleri Shopify'a Push Et (Senkronizasyon)
+    if data.price is not None or data.quantity is not None:
+        int_result = await db.execute(
+            select(MarketplaceIntegration)
+            .where(
+                MarketplaceIntegration.tenant_id == current_user.tenant_id,
+                MarketplaceIntegration.marketplace_name == "shopify",
+                MarketplaceIntegration.is_active == True
+            )
+        )
+        integration = int_result.scalars().first()
+
+        if integration and integration.api_key and integration.store_url:
+            adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
+            # Hata yapsa bile bizim DB'miz güncellendi, sadece logluyoruz (İsteğe bağlı hata fırlatılabilir)
+            adapter.update_product(
+                sku=product.sku, 
+                new_price=data.price, 
+                new_stock=data.quantity
+            )
+
+    return {"message": "Ürün başarıyla güncellendi"}
+
+from schemas.order import OrderSchema
+
+@router.get("/me/orders", response_model=List[OrderSchema])
+async def get_my_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from models.order import Order
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Order)
+        .where(Order.tenant_id == current_user.tenant_id)
+        .options(selectinload(Order.items))
+        .order_by(Order.order_date.desc())
+    )
+    orders = result.scalars().all()
+    return orders
