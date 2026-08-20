@@ -211,8 +211,8 @@ import xml.etree.ElementTree as ET
 
 class N11Adapter(MarketplaceAdapter):
     def __init__(self, api_key: str, api_secret: str):
-        self.api_key = api_key
-        self.api_secret = api_secret
+        self.api_key = api_key.strip()
+        self.api_secret = api_secret.strip()
         
     def _get_auth_xml(self) -> str:
         return f"""
