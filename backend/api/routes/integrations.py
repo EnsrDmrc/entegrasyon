@@ -215,23 +215,8 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
             await db.refresh(product)
         else:
             # Sadece N11 fiyatını kullanarak ana ürünü güncellemeyelim, stok mappingi önemli.
-            # Kullanıcının talebi üzerine N11 master stok kabul edilerek mevcut ürünün Shopify stoğu eşitlenecek.
-            shopify_int_result = await db.execute(
-                select(MarketplaceIntegration)
-                .where(
-                    MarketplaceIntegration.tenant_id == current_user.tenant_id,
-                    MarketplaceIntegration.marketplace_name == "shopify",
-                    MarketplaceIntegration.is_active == True
-                )
-            )
-            shopify_int = shopify_int_result.scalars().first()
-            if shopify_int and shopify_int.api_key and shopify_int.store_url:
-                try:
-                    s_adapter = ShopifyAdapter(api_key=str(shopify_int.api_key), store_url=str(shopify_int.store_url))
-                    # N11 stoğunu (item["quantity"]) alıp Shopify'a itiyoruz.
-                    s_adapter.update_product(sku=item["sku"], new_stock=item["quantity"])
-                except Exception as e:
-                    print(f"Failed to push N11 stock to Shopify: {e}")
+            # Veritabanında ürün olduğu için pas geçiyoruz, stok Inventory tablosunda güncellenecek.
+            pass
 
         # N11 stok kaydını oluştur
         inv_result = await db.execute(

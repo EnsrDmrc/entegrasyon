@@ -245,11 +245,17 @@ class N11Adapter(MarketplaceAdapter):
                     
                     price = float(prod.price) if prod.price else 0.0
                     
+                    qty = 0
+                    if hasattr(prod, 'stockItems') and prod.stockItems:
+                        if hasattr(prod.stockItems, 'stockItem') and prod.stockItems.stockItem:
+                            for st in prod.stockItems.stockItem:
+                                qty += (int(st.quantity) if st.quantity else 0)
+                    
                     fetched_variants.append({
                         "sku": sku,
                         "name": prod.title or "",
                         "price": price,
-                        "quantity": 1,
+                        "quantity": qty,
                         "marketplace": "n11"
                     })
                 
