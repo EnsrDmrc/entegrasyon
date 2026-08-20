@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
+import asyncio
 
 from core.database import get_db
 from api.deps import get_current_user
@@ -183,7 +184,7 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
 
     adapter = N11Adapter(api_key=str(integration.api_key), api_secret=str(integration.api_secret))
     try:
-        fetched_items = adapter.fetch_all_products()
+        fetched_items = await asyncio.to_thread(adapter.fetch_all_products)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -273,7 +274,7 @@ async def sync_n11_orders(current_user: User = Depends(get_current_user), db: As
 
     adapter = N11Adapter(api_key=str(integration.api_key), api_secret=str(integration.api_secret))
     try:
-        fetched_orders = adapter.fetch_orders()
+        fetched_orders = await asyncio.to_thread(adapter.fetch_orders)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
         

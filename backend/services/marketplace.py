@@ -203,108 +203,55 @@ class ShopifyAdapter(MarketplaceAdapter):
                         
         except Exception as e:
             print(f"[Shopify Order Sync Hatası]: {e}")
-            
-        return fetched_orders
-
-
-import xml.etree.ElementTree as ET
+       import zeep
 
 class N11Adapter(MarketplaceAdapter):
     def __init__(self, api_key: str, api_secret: str):
-        self.api_key = api_key.strip()
-        self.api_secret = api_secret.strip()
+        self.auth = {
+            'appKey': api_key.strip(),
+            'appSecret': api_secret.strip()
+        }
+        self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl')
+        self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl')
         
-    def _get_auth_xml(self) -> str:
-        return f"""
-         <auth>
-            <appKey>{self.api_key}</appKey>
-            <appSecret>{self.api_secret}</appSecret>
-         </auth>
-        """
-
     def fetch_all_products(self) -> list:
         fetched_variants = []
         try:
-            with httpx.Client() as client:
-                current_page = 0
-                page_size = 100
-                total_pages = 1
+            current_page = 0
+            page_size = 100
+            total_pages = 1
+            
+            while current_page <= total_pages:
+                paging = {'currentPage': current_page, 'pageSize': page_size}
+                res = self.product_client.service.GetProductList(auth=self.auth, pagingData=paging)
                 
-                while current_page <= total_pages:
-                    payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-                    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sch="http://www.n11.com/ws/schemas">
-                       <soapenv:Header/>
-                       <soapenv:Body>
-                          <sch:GetProductListRequest>
-                             {self._get_auth_xml()}
-                             <pagingData>
-                                <currentPage>{current_page}</currentPage>
-                                <pageSize>{page_size}</pageSize>
-                             </pagingData>
-                          </sch:GetProductListRequest>
-                       </soapenv:Body>
-                    </soapenv:Envelope>"""
+                if res.result.status == "failure":
+                    raise Exception(f"N11 API Hatası: {res.result.errorMessage}")
+                
+                if current_page == 0 and res.pagingData:
+                    total_pages = res.pagingData.pageCount - 1
+                
+                if not res.products or not res.products.product:
+                    break
                     
-                    headers = {"Content-Type": "text/xml; charset=utf-8"}
-                    res = client.post("https://api.n11.com/ws/ProductService.wsdl", content=payload, headers=headers)
-                    if res.status_code != 200:
-                        fault = ""
-                        try:
-                            fault_root = ET.fromstring(res.text)
-                            fault_elem = fault_root.find(".//faultstring")
-                            if fault_elem is not None:
-                                fault = fault_elem.text
-                        except:
-                            pass
-                        raise Exception(f"N11 API Hatası: {fault or res.text}")
-                        
-                    root = ET.fromstring(res.text)
-                    namespaces = {'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/', 'n11': 'http://www.n11.com/ws/schemas'}
+                for prod in res.products.product:
+                    sku = prod.productSellerCode
+                    if not sku:
+                        continue
                     
-                    # Check for internal N11 failure despite HTTP 200
-                    status_elem = root.find(".//result/status", namespaces)
-                    if status_elem is not None and status_elem.text == "failure":
-                        err_msg = root.find(".//result/errorMessage", namespaces)
-                        err_text = err_msg.text if err_msg is not None else "Bilinmeyen N11 hatası."
-                        raise Exception(f"N11 API Hatası: {err_text}")
+                    price = float(prod.price) if prod.price else 0.0
                     
-                    # Extract total pages on first request
-                    if current_page == 0:
-                        page_count_elem = root.find(".//n11:pageCount", namespaces)
-                        if page_count_elem is not None and page_count_elem.text:
-                            total_pages = int(page_count_elem.text)
-                    
-                    products = root.findall(".//n11:product", namespaces)
-                    if not products:
-                        break
-                        
-                    for prod in products:
-                        sku_elem = prod.find("n11:productSellerCode", namespaces)
-                        title_elem = prod.find("n11:title", namespaces)
-                        price_elem = prod.find("n11:price", namespaces)
-                        
-                        # Note: GetProductList doesn't always return exact stock details. 
-                        # We might need to use GetProductBySellerCode for deep details, 
-                        # but for now we try to get stock if it exists or default to 0.
-                        sku = sku_elem.text if sku_elem is not None else ""
-                        if not sku:
-                            continue
-                            
-                        title = title_elem.text if title_elem is not None else ""
-                        price = float(price_elem.text) if price_elem is not None else 0.0
-                        
-                        # We will just fetch deep details to get accurate stock since N11 list response often omits it
-                        # For prototyping, we set stock to 1 if not easily parseable
-                        fetched_variants.append({
-                            "sku": sku,
-                            "name": title,
-                            "price": price,
-                            "quantity": 1,  # Deep stock fetch usually requires GetProductBySellerCode loop
-                            "marketplace": "n11"
-                        })
-                    
-                    current_page += 1
-
+                    fetched_variants.append({
+                        "sku": sku,
+                        "name": prod.title or "",
+                        "price": price,
+                        "quantity": 1,
+                        "marketplace": "n11"
+                    })
+                
+                current_page += 1
+                if current_page > total_pages:
+                    break
         except Exception as e:
             print(f"[n11 Sync Hatası]: {e}")
             raise e
@@ -314,86 +261,47 @@ class N11Adapter(MarketplaceAdapter):
     def fetch_orders(self) -> list:
         fetched_orders = []
         try:
-            with httpx.Client() as client:
-                payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sch="http://www.n11.com/ws/schemas">
-                   <soapenv:Header/>
-                   <soapenv:Body>
-                      <sch:OrderListRequest>
-                         {self._get_auth_xml()}
-                         <searchData>
-                            <status>New</status>
-                         </searchData>
-                         <pagingData>
-                            <currentPage>0</currentPage>
-                            <pageSize>100</pageSize>
-                         </pagingData>
-                      </sch:OrderListRequest>
-                   </soapenv:Body>
-                </soapenv:Envelope>"""
+            search_data = {'status': 'New'}
+            paging = {'currentPage': 0, 'pageSize': 100}
+            res = self.order_client.service.OrderList(auth=self.auth, searchData=search_data, pagingData=paging)
+            
+            if res.result.status == "failure":
+                raise Exception(f"N11 API Hatası: {res.result.errorMessage}")
+            
+            if not res.orderList or not res.orderList.order:
+                return fetched_orders
                 
-                headers = {"Content-Type": "text/xml; charset=utf-8"}
-                res = client.post("https://api.n11.com/ws/OrderService.wsdl", content=payload, headers=headers)
-                if res.status_code != 200:
-                    fault = ""
-                    try:
-                        fault_root = ET.fromstring(res.text)
-                        fault_elem = fault_root.find(".//faultstring")
-                        if fault_elem is not None:
-                            fault = fault_elem.text
-                    except:
-                        pass
-                    raise Exception(f"N11 API Hatası: {fault or res.text}")
-
-                if res.status_code == 200:
-                    root = ET.fromstring(res.text)
-                    namespaces = {'n11': 'http://www.n11.com/ws/schemas'}
-                    
-                    # Check for internal N11 failure
-                    status_elem = root.find(".//result/status", namespaces)
-                    if status_elem is not None and status_elem.text == "failure":
-                        err_msg = root.find(".//result/errorMessage", namespaces)
-                        err_text = err_msg.text if err_msg is not None else "Bilinmeyen N11 hatası."
-                        raise Exception(f"N11 API Hatası: {err_text}")
-                    
-                    orders = root.findall(".//n11:order", namespaces)
-                    for ord_elem in orders:
-                        order_id = ord_elem.find("n11:id", namespaces)
-                        order_num = ord_elem.find("n11:orderNumber", namespaces)
-                        buyer = ord_elem.find(".//n11:buyer/n11:fullName", namespaces)
-                        status = ord_elem.find("n11:status", namespaces)
-                        date = ord_elem.find("n11:createDate", namespaces)
+            for ord_data in res.orderList.order:
+                order_num = ord_data.orderNumber or str(ord_data.id)
+                buyer = ord_data.buyer.fullName if ord_data.buyer else "N11 Müşteri"
+                status = ord_data.status or "New"
+                date_str = str(ord_data.createDate) if ord_data.createDate else None
+                
+                items = []
+                total_price = 0.0
+                if ord_data.itemList and ord_data.itemList.item:
+                    for item in ord_data.itemList.item:
+                        sku = item.productSellerCode or "N11-NO-SKU"
+                        title = item.productName or ""
+                        qty = int(item.quantity) if item.quantity else 1
+                        price = float(item.price) if item.price else 0.0
+                        total_price += price * qty
                         
-                        items = []
-                        # N11 order items are in itemList
-                        item_list = ord_elem.findall(".//n11:itemList/n11:item", namespaces)
-                        total_price = 0.0
-                        for item in item_list:
-                            sku = item.find("n11:productSellerCode", namespaces)
-                            title = item.find("n11:productName", namespaces)
-                            qty = item.find("n11:quantity", namespaces)
-                            price = item.find("n11:price", namespaces)
-                            
-                            i_qty = int(qty.text) if qty is not None else 1
-                            i_price = float(price.text) if price is not None else 0.0
-                            
-                            total_price += i_price * i_qty
-                            
-                            items.append({
-                                "product_sku": sku.text if sku is not None else "N11-NO-SKU",
-                                "product_name": title.text if title is not None else "",
-                                "quantity": i_qty,
-                                "price": i_price
-                            })
-
-                        fetched_orders.append({
-                            "order_number": order_num.text if order_num is not None else (order_id.text if order_id is not None else ""),
-                            "customer_name": buyer.text if buyer is not None else "N11 Müşteri",
-                            "total_price": total_price,
-                            "status": status.text if status is not None else "New",
-                            "order_date": date.text if date is not None else None,
-                            "items": items
+                        items.append({
+                            "product_sku": sku,
+                            "product_name": title,
+                            "quantity": qty,
+                            "price": price
                         })
+                
+                fetched_orders.append({
+                    "order_number": order_num,
+                    "customer_name": buyer,
+                    "total_price": total_price,
+                    "status": status,
+                    "order_date": date_str,
+                    "items": items
+                })
         except Exception as e:
             print(f"[n11 Order Sync Hatası]: {e}")
             raise e
@@ -401,56 +309,34 @@ class N11Adapter(MarketplaceAdapter):
         return fetched_orders
 
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
-        # Stock Update Request
+        success = True
         if new_stock is not None:
             try:
-                with httpx.Client() as client:
-                    payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-                    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sch="http://www.n11.com/ws/schemas">
-                       <soapenv:Header/>
-                       <soapenv:Body>
-                          <sch:UpdateStockByStockSellerCodeRequest>
-                             {self._get_auth_xml()}
-                             <stockSellerCode>{sku}</stockSellerCode>
-                             <stockItems>
-                                <stockItem>
-                                   <sellerStockCode>{sku}</sellerStockCode>
-                                   <quantity>{new_stock}</quantity>
-                                </stockItem>
-                             </stockItems>
-                          </sch:UpdateStockByStockSellerCodeRequest>
-                       </soapenv:Body>
-                    </soapenv:Envelope>"""
-                    
-                    headers = {"Content-Type": "text/xml; charset=utf-8"}
-                    res = client.post("https://api.n11.com/ws/ProductService.wsdl", content=payload, headers=headers)
-                    if res.status_code != 200:
-                        return False
+                stock_items = {'stockItem': [{'sellerStockCode': sku, 'quantity': new_stock}]}
+                res = self.product_client.service.UpdateStockByStockSellerCode(
+                    auth=self.auth, 
+                    stockSellerCode=sku, 
+                    stockItems=stock_items
+                )
+                if res.result.status == "failure":
+                    success = False
             except Exception:
-                return False
+                success = False
                 
-        # Price Update Request
         if new_price is not None:
             try:
-                with httpx.Client() as client:
-                    payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-                    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sch="http://www.n11.com/ws/schemas">
-                       <soapenv:Header/>
-                       <soapenv:Body>
-                          <sch:UpdateProductPriceBySellerCodeRequest>
-                             {self._get_auth_xml()}
-                             <productSellerCode>{sku}</productSellerCode>
-                             <price>{new_price}</price>
-                             <currencyType>1</currencyType>
-                          </sch:UpdateProductPriceBySellerCodeRequest>
-                       </soapenv:Body>
-                    </soapenv:Envelope>"""
-                    headers = {"Content-Type": "text/xml; charset=utf-8"}
-                    res = client.post("https://api.n11.com/ws/ProductService.wsdl", content=payload, headers=headers)
+                res = self.product_client.service.UpdateProductPriceBySellerCode(
+                    auth=self.auth,
+                    productSellerCode=sku,
+                    price=new_price,
+                    currencyType=1
+                )
+                if res.result.status == "failure":
+                    success = False
             except Exception:
-                return False
+                success = False
                 
-        return True
+        return success
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Test Product n11", "price": 100.0}
