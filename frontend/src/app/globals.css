@@ -319,10 +319,10 @@ body {
 .badge-red { background-color: #fee2e2; color: #991b1b; }
 .badge-yellow { background-color: #fef3c7; color: #92400e; }
 
-/* --- Landing Page Modern Redesign --- */
+/* --- Landing Page Light Corporate Redesign --- */
 .landing-body {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #f8fafc;
+  background: #f8fafc;
+  color: #0f172a;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
@@ -337,32 +337,31 @@ body {
   width: 100%;
   top: 0;
   z-index: 50;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .landing-logo {
   font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(90deg, #60a5fa, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #1e3a8a; /* Kurumsal lacivert/mavi */
 }
 
 .landing-btn-login {
-  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  background: #2563eb;
   color: white;
   padding: 0.6rem 1.5rem;
   border-radius: 999px;
   font-weight: 600;
   text-decoration: none;
   transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
 }
 .landing-btn-login:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+  box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4);
 }
 
 .landing-hero {
@@ -371,6 +370,7 @@ body {
   align-items: center;
   text-align: center;
   padding: 10rem 5% 5rem 5%;
+  background: linear-gradient(180deg, #e0e7ff 0%, #f8fafc 100%);
 }
 
 .landing-title {
@@ -379,16 +379,15 @@ body {
   line-height: 1.1;
   margin-bottom: 1.5rem;
   max-width: 800px;
+  color: #0f172a;
 }
 .landing-title span {
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #2563eb;
 }
 
 .landing-subtitle {
   font-size: 1.25rem;
-  color: #94a3b8;
+  color: #475569;
   max-width: 600px;
   margin-bottom: 2.5rem;
   line-height: 1.6;
@@ -399,10 +398,10 @@ body {
   width: 100%;
   max-width: 1000px;
   margin: 0 auto 4rem auto;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   transform: perspective(1000px) rotateX(2deg);
   transition: transform 0.5s;
 }
@@ -417,9 +416,9 @@ body {
 }
 
 .landing-marquee {
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   padding: 2rem 0;
   overflow: hidden;
   white-space: nowrap;
@@ -436,8 +435,8 @@ body {
 .landing-marquee-content span {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #64748b;
-  opacity: 0.6;
+  color: #94a3b8;
+  opacity: 0.8;
 }
 
 @keyframes scrollMarquee {
@@ -456,6 +455,7 @@ body {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 3rem;
+  color: #0f172a;
 }
 
 .landing-grid {
@@ -465,17 +465,17 @@ body {
 }
 
 .landing-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 1rem;
   padding: 2rem;
-  backdrop-filter: blur(10px);
-  transition: transform 0.3s, background 0.3s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 .landing-card:hover {
   transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
+  border-color: rgba(37, 99, 235, 0.2);
 }
 
 .landing-card-icon {
@@ -487,18 +487,19 @@ body {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #f8fafc;
+  color: #0f172a;
 }
 
 .landing-card-text {
-  color: #94a3b8;
+  color: #475569;
   line-height: 1.6;
 }
 
 .landing-footer {
   text-align: center;
   padding: 3rem 5%;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  color: #64748b;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  color: #94a3b8;
   font-size: 0.875rem;
+  background: white;
 }

@@ -26,7 +26,7 @@ export default function Home() {
 
         <div className="landing-mockup-wrapper animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <Image 
-            src="/dashboard-mockup.jpg" 
+            src="/dashboard-mockup-light.png" 
             alt="Nexus Integrations Dashboard" 
             width={1000} 
             height={562}
