@@ -57,19 +57,19 @@ export default function Home() {
             </div>
             
             <div className="integration-card">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/b/be/N11_Logo_2025.svg" alt="N11" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/n11.png" alt="N11" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://pazarama.com&size=128" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/pazarama.png" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ciceksepeti.com&size=128" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/ciceksepeti.png" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
               <img src="https://upload.wikimedia.org/wikipedia/commons/6/63/OpenCart_logo.svg" alt="Opencart" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://pttavm.com&size=128" alt="PttAVM" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/pttavm.png" alt="PttAVM" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
           </div>
         </div>
