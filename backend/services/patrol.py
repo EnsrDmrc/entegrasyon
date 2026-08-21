@@ -60,7 +60,11 @@ async def process_tenant_orders(session, tenant_id: int):
         existing_order = ord_result.scalars().first()
         
         if existing_order:
-            # Sipariş zaten var, tekrar stoğunu düşme!
+            # Sipariş zaten var, ancak statüsü değişmiş olabilir (ör: Onaylandı -> Teslim Edildi)
+            if existing_order.status != ord_data.get("status"):
+                existing_order.status = ord_data.get("status")
+                session.add(existing_order)
+                await session.commit()
             continue
             
         print(f"[Patrol] Yeni sipariş algılandı! Order No: {order_number}")
