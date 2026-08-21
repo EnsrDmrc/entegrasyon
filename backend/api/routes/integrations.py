@@ -191,12 +191,11 @@ async def test_shopify(current_user: User = Depends(get_current_user), db: Async
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/n11-force-sync/{order_number}")
-async def n11_force_sync(order_number: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # Tekil siparişi doğrudan N11 OrderDetail API üzerinden zorla eşitleyen uç
+async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
+    # Tekil siparişi doğrudan N11 OrderDetail API üzerinden zorla eşitleyen uç (Geçici yetkisiz)
     result = await db.execute(
         select(MarketplaceIntegration)
         .where(
-            MarketplaceIntegration.tenant_id == current_user.tenant_id,
             MarketplaceIntegration.marketplace_name == "n11",
             MarketplaceIntegration.is_active == True
         )
@@ -235,7 +234,7 @@ async def n11_force_sync(order_number: str, current_user: User = Depends(get_cur
         mapped_status = status_map.get(raw_status, raw_status)
         
         # DB'de güncelle
-        ord_result = await db.execute(select(Order).where(Order.order_number == order_number, Order.tenant_id == current_user.tenant_id))
+        ord_result = await db.execute(select(Order).where(Order.order_number == order_number, Order.tenant_id == integration.tenant_id))
         existing = ord_result.scalars().first()
         
         updated = False
