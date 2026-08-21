@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from dateutil import parser
-from db.database import async_session_maker
+from core.database import AsyncSessionLocal
 from models.integration import MarketplaceIntegration
 from models.order import Order, OrderItem
 from models.product import Product
@@ -139,7 +139,7 @@ async def order_patrol_loop():
     print("[Patrol] Sipariş Devriyesi başlatıldı! Her 2 dakikada bir çalışacak.")
     while True:
         try:
-            async with async_session_maker() as session:
+            async with AsyncSessionLocal() as session:
                 tenant_res = await session.execute(select(MarketplaceIntegration.tenant_id).distinct())
                 tenant_ids = [row[0] for row in tenant_res.all()]
                 for t_id in tenant_ids:
