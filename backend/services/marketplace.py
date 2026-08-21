@@ -207,6 +207,7 @@ class ShopifyAdapter(MarketplaceAdapter):
         return fetched_orders
 
 import zeep
+from zeep import Client, Settings
 
 class N11Adapter(MarketplaceAdapter):
     def __init__(self, api_key: str, api_secret: str):
@@ -214,7 +215,7 @@ class N11Adapter(MarketplaceAdapter):
             'appKey': api_key.strip(),
             'appSecret': api_secret.strip()
         }
-        settings = zeep.Settings(strict=False, xsd_ignore_sequence_order=True)
+        settings = Settings(strict=False, xsd_ignore_sequence_order=True)
         self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl', settings=settings)
         self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl', settings=settings)
         
@@ -273,7 +274,7 @@ class N11Adapter(MarketplaceAdapter):
         try:
             from datetime import datetime, timedelta
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
+            start_date = end_date - timedelta(days=180)
             
             # N11 WSDL şeması bazı alanların dictionary içinde mutlaka tanımlı olmasını bekler
             search_data = {

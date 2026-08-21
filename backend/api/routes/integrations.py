@@ -204,14 +204,15 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
     if not integration:
         raise HTTPException(status_code=404, detail="Aktif N11 entegrasyonu bulunamadı")
         
-    from zeep import Client
+    from zeep import Client, Settings
     from zeep.transports import Transport
     from requests import Session
     from models.order import Order
     
     auth = {'appKey': integration.api_key, 'appSecret': integration.api_secret}
     transport = Transport(session=Session())
-    client = Client('https://api.n11.com/ws/OrderService.wsdl', transport=transport)
+    settings = Settings(strict=False, xsd_ignore_sequence_order=True)
+    client = Client('https://api.n11.com/ws/OrderService.wsdl', transport=transport, settings=settings)
     
     try:
         # Önce sipariş numarasıyla arama yapıp N11'in iç ID'sini bulmalıyız
