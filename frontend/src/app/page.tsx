@@ -6,7 +6,7 @@ export default function Home() {
     <div className="landing-body">
       {/* Navigation */}
       <nav className="landing-nav animate-fade-in">
-        <div className="landing-logo">Nexus Integrations</div>
+        <div className="landing-logo">Demircisoft</div>
         <div>
           <Link href="/login" className="landing-btn-login">
             Giriş Yap / Panele Git
@@ -27,7 +27,7 @@ export default function Home() {
         <div className="landing-mockup-wrapper animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <Image 
             src="/dashboard-mockup-light.png" 
-            alt="Nexus Integrations Dashboard" 
+            alt="Demircisoft Dashboard" 
             width={1000} 
             height={562}
             className="landing-mockup-img"
@@ -67,7 +67,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="landing-features">
-        <h2 className="landing-section-title">Neden Nexus Integrations?</h2>
+        <h2 className="landing-section-title">Neden Demircisoft?</h2>
         <div className="landing-grid">
           <div className="landing-card">
             <div className="landing-card-icon">🚀</div>
@@ -95,7 +95,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="landing-footer">
-        <p>© {new Date().getFullYear()} Nexus Integrations. Tüm hakları saklıdır.</p>
+        <p>© {new Date().getFullYear()} Demircisoft. Tüm hakları saklıdır.</p>
       </footer>
     </div>
   );
