@@ -376,36 +376,53 @@ class N11Adapter(MarketplaceAdapter):
             
         return fetched_orders
 
-    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+    def update_product(self, sku: str, new_price: float=None, new_stock: int=None) -> bool:
         success = True
-        if new_stock is not None:
-            try:
-                stock_items = {'stockItem': [{'sellerStockCode': sku, 'quantity': new_stock}]}
-                res = self.product_client.service.UpdateStockByStockSellerCode(
-                    auth=self.auth, 
-                    stockSellerCode=sku, 
-                    stockItems=stock_items
-                )
-                if res.result.status == "failure":
-                    success = False
-            except Exception:
-                success = False
+        try:
+            import httpx
+            
+            headers = {
+                "appkey": self.auth["appKey"],
+                "appsecret": self.auth["appSecret"],
+                "Content-Type": "application/json"
+            }
+            
+            sku_data = {"stockCode": sku}
+            if new_price is not None:
+                sku_data["salePrice"] = float(new_price)
+                sku_data["listPrice"] = float(new_price)
+            if new_stock is not None:
+                sku_data["quantity"] = int(new_stock)
                 
-        if new_price is not None:
-            try:
-                res = self.product_client.service.UpdateProductPriceBySellerCode(
-                    auth=self.auth,
-                    productSellerCode=sku,
-                    price=new_price,
-                    currencyType=1
+            payload = {
+                "payload": {
+                    "integrator": "Entegrasyon",
+                    "skus": [sku_data]
+                }
+            }
+            
+            with httpx.Client() as client:
+                res = client.post(
+                    "https://api.n11.com/ms/product/tasks/price-stock-update",
+                    headers=headers,
+                    json=payload
                 )
-                if res.result.status == "failure":
-                    success = False
-            except Exception:
-                success = False
                 
+                if res.status_code not in (200, 201, 202):
+                    print(f"[N11] Stok/Fiyat güncellenemedi ({sku}): {res.text}")
+                    success = False
+                else:
+                    data = res.json()
+                    # Genellikle 'taskId' döner
+                    if not data.get("taskId") and data.get("result", {}).get("status") == "failure":
+                        print(f"[N11] REST API Hatası ({sku}): {res.text}")
+                        success = False
+                        
+        except Exception as e:
+            print(f"[N11] Stok/Fiyat güncelleme isteği başarısız ({sku}): {e}")
+            success = False
+            
         return success
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Test Product n11", "price": 100.0}
-

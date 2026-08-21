@@ -94,7 +94,7 @@ function InventoryContent() {
       });
       
       if (response.ok) {
-        alert(`Ürün başarıyla güncellendi ve Shopify'a senkronize edildi!`);
+        alert("Ürün başarıyla güncellendi ve Pazaryerlerine senkronize edildi!");
         closeEditModal();
         fetchProducts(); // Değişikliği veritabanından çekip UI'a yansıt
       } else {
