@@ -140,7 +140,7 @@ async def process_tenant_orders(session, tenant_id: int):
                 await asyncio.to_thread(n11_adapter.update_product, sku, new_stock=new_stock)
 
 async def order_patrol_loop():
-    print("[Patrol] Sipariş Devriyesi başlatıldı! Her 2 dakikada bir çalışacak.")
+    print("[Patrol] Sipariş Devriyesi başlatıldı! Her 1 dakikada bir çalışacak.")
     while True:
         try:
             async with AsyncSessionLocal() as session:
@@ -151,5 +151,5 @@ async def order_patrol_loop():
         except Exception as e:
             print(f"[Patrol] Devriye sırasında hata: {e}")
         
-        # 2 dakika bekle
-        await asyncio.sleep(120)
+        # 1 dakika bekle (Kullanıcıya daha hızlı/anlık güncelleniyor hissi vermek için 60 saniyeye düşürüldü)
+        await asyncio.sleep(60)

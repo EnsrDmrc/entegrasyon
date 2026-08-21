@@ -334,7 +334,9 @@ class N11Adapter(MarketplaceAdapter):
                         "3": "Reddedildi",
                         "4": "Kargolandı",
                         "5": "Teslim Edildi",
-                        "6": "İade / İptal"
+                        "6": "Tamamlandı",
+                        "7": "İade Edildi",
+                        "8": "İptal Edildi"
                     }
                     status = status_map.get(status_raw, status_raw)
                     
