@@ -274,7 +274,7 @@ class N11Adapter(MarketplaceAdapter):
             # N11 WSDL şeması bazı alanların dictionary içinde mutlaka tanımlı olmasını bekler
             search_data = {
                 'productId': '',
-                'status': 'New',
+                'status': '', # Sadece 'New' değil tüm siparişleri çekmek için boş bırakıldı
                 'buyerName': '',
                 'orderNumber': '',
                 'productSellerCode': '',
