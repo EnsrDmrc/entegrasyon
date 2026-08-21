@@ -44,7 +44,7 @@ export default function Home() {
               <img src="https://cdn.dsmcdn.com/web/logo/ty-web.svg" alt="Trendyol" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://images.hepsiburada.net/assets/sf/mweb/logo.svg" alt="Hepsiburada" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://upload.wikimedia.org/wikipedia/commons/2/20/Hepsiburada_logo_official.svg" alt="Hepsiburada" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
               <img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" alt="Amazon" style={{ maxHeight: '30px', maxWidth: '100%' }} />
@@ -53,29 +53,24 @@ export default function Home() {
               <img src="https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg" alt="Shopify" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/WooCommerce_logo.svg" alt="WooCommerce" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/WooCommerce_logo_%282015%29.svg" alt="WooCommerce" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             
             <div className="integration-card">
-              <img src="https://n11scdn.akamaized.net/a1/org/24/07/22/27/98/08/90/13/26/66/83/87/4405908862908846313.svg" alt="N11" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://logo.clearbit.com/n11.com" alt="N11" style={{ maxHeight: '40px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://www.pazarama.com/assets/images/logo.svg" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://logo.clearbit.com/pazarama.com" alt="Pazarama" style={{ maxHeight: '40px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://cdn.ciceksepeti.com/cicek-resim/xh/ciceksepeti-logo.svg" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://logo.clearbit.com/ciceksepeti.com" alt="Çiçeksepeti" style={{ maxHeight: '40px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Opencart_logo.svg" alt="Opencart" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://upload.wikimedia.org/wikipedia/commons/6/63/OpenCart_logo.svg" alt="Opencart" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="https://cdn.pttavm.com/c/m/1722883072.svg" alt="PttAVM" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="https://logo.clearbit.com/pttavm.com" alt="PttAVM" style={{ maxHeight: '40px', maxWidth: '100%' }} />
             </div>
-          </div>
-          <div className="integrations-cta">
-            <Link href="/login" className="integrations-cta-btn">
-              Tüm Çözüm Ortaklarımızı İnceleyin →
-            </Link>
           </div>
         </div>
       </section>
