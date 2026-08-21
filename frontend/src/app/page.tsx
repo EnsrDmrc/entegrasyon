@@ -1,44 +1,102 @@
+import Link from "next/link";
+import Image from "next/image";
+
 export default function Home() {
   return (
-    <div className="layout-container">
-      <header className="glass header animate-fade-in">
-        <h1 className="logo text-gradient">Nexus Integrations</h1>
-        <div className="header-actions">
-          <button className="btn btn-secondary">Documentation</button>
-          <a href="/login" className="btn btn-primary">Dashboard</a>
+    <div className="landing-body">
+      {/* Navigation */}
+      <nav className="landing-nav animate-fade-in">
+        <div className="landing-logo">Nexus Integrations</div>
+        <div>
+          <Link href="/login" className="landing-btn-login">
+            Giriş Yap / Panele Git
+          </Link>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <header className="landing-hero animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <h1 className="landing-title">
+          Tüm E-Ticaret Operasyonunuz <br />
+          <span>Tek Ekran, Tam Kontrol</span>
+        </h1>
+        <p className="landing-subtitle">
+          N11, Shopify ve daha fazlasını aynı anda yönetin. Stoklarınızı milisaniye hızında senkronize edin, çifte satışı sonsuza dek unutun.
+        </p>
+
+        <div className="landing-mockup-wrapper animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <Image 
+            src="/dashboard-mockup.jpg" 
+            alt="Nexus Integrations Dashboard" 
+            width={1000} 
+            height={562}
+            className="landing-mockup-img"
+            priority
+          />
         </div>
       </header>
 
-      <main className="main-content animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        <h2 className="hero-title">
-          Sync Your Marketplaces <br /><span className="text-gradient">in Real-Time</span>
-        </h2>
-        <p className="hero-subtitle">
-          Centralize your inventory and orders across Shopify, n11, Trendyol, and more.
-          Prevent overselling with our millisecond-accurate distributed lock system.
-        </p>
+      {/* Marquee Section */}
+      <section className="landing-marquee animate-fade-in" style={{ animationDelay: '0.5s' }}>
+        <div className="landing-marquee-content">
+          <span>Shopify</span>
+          <span>•</span>
+          <span>N11</span>
+          <span>•</span>
+          <span>Trendyol</span>
+          <span>•</span>
+          <span>Hepsiburada</span>
+          <span>•</span>
+          <span>WooCommerce</span>
+          <span>•</span>
+          <span>Amazon</span>
+          <span>•</span>
+          <span>Shopify</span>
+          <span>•</span>
+          <span>N11</span>
+          <span>•</span>
+          <span>Trendyol</span>
+          <span>•</span>
+          <span>Hepsiburada</span>
+          <span>•</span>
+          <span>WooCommerce</span>
+          <span>•</span>
+          <span>Amazon</span>
+        </div>
+      </section>
 
-        <div className="features-grid">
-          <div className="glass feature-card">
-            <h3>Shopify Ready</h3>
-            <p>Instant webhooks and seamless inventory deduction directly connected to your Shopify store.</p>
+      {/* Features Section */}
+      <section className="landing-features">
+        <h2 className="landing-section-title">Neden Nexus Integrations?</h2>
+        <div className="landing-grid">
+          <div className="landing-card">
+            <div className="landing-card-icon">🚀</div>
+            <h3 className="landing-card-title">Işık Hızında Stok Senkronizasyonu</h3>
+            <p className="landing-card-text">
+              Dağıtık kilit (distributed lock) mimarisi ile ürününüz aynı saniyede iki farklı pazaryerinden alınsa bile stoğunuz asla eksiye düşmez.
+            </p>
           </div>
-          <div className="glass feature-card">
-            <h3>n11 Integration</h3>
-            <p>Fully compliant with n11 APIs to ensure your prices and stock are always accurate.</p>
+          <div className="landing-card">
+            <div className="landing-card-icon">📦</div>
+            <h3 className="landing-card-title">Tek Merkezden Sipariş Yönetimi</h3>
+            <p className="landing-card-text">
+              Hangi platformdan gelirse gelsin, tüm siparişleriniz saniyeler içinde önünüzde. Sipariş devriyesi ile hiçbir satışı kaçırmayın.
+            </p>
           </div>
-          <div className="glass feature-card">
-            <h3>Concurrency Control</h3>
-            <p>Redis-backed distributed locks guarantee that the last item is never sold twice.</p>
+          <div className="landing-card">
+            <div className="landing-card-icon">🔄</div>
+            <h3 className="landing-card-title">Otomatik Fiyat Güncelleme</h3>
+            <p className="landing-card-text">
+              Fiyatı ana panelden bir kez değiştirin, REST API teknolojisi ile tüm pazaryerlerine (Shopify, N11 vb.) saniyeler içinde yansısın.
+            </p>
           </div>
         </div>
+      </section>
 
-        <div className="cta-container">
-          <button className="btn btn-primary btn-large">
-            Get Started
-          </button>
-        </div>
-      </main>
+      {/* Footer */}
+      <footer className="landing-footer">
+        <p>© {new Date().getFullYear()} Nexus Integrations. Tüm hakları saklıdır.</p>
+      </footer>
     </div>
   );
 }
