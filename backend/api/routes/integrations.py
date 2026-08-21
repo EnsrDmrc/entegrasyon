@@ -229,7 +229,9 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
             'period': {
                 'startDate': start_d.strftime('%d/%m/%Y 00:00'),
                 'endDate': end_d.strftime('%d/%m/%Y 23:59')
-            }
+            },
+            'sortForUpdateDate': False,
+            'updateDateSortOrder': 'DESC'
         }
         paging = {'currentPage': 0, 'pageSize': 10}
         list_res = client.service.OrderList(auth=auth, searchData=search_data, pagingData=paging)
