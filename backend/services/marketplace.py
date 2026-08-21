@@ -296,37 +296,50 @@ class N11Adapter(MarketplaceAdapter):
             if not res.orderList or not res.orderList.order:
                 return fetched_orders
                 
-            for ord_data in res.orderList.order:
-                order_num = ord_data.orderNumber or str(ord_data.id)
-                buyer = ord_data.buyer.fullName if ord_data.buyer else "N11 Müşteri"
-                status = ord_data.status or "New"
-                date_str = str(ord_data.createDate) if ord_data.createDate else None
-                
-                items = []
-                total_price = 0.0
-                if ord_data.itemList and ord_data.itemList.item:
-                    for item in ord_data.itemList.item:
-                        sku = item.productSellerCode or "N11-NO-SKU"
-                        title = item.productName or ""
-                        qty = int(item.quantity) if item.quantity else 1
-                        price = float(item.price) if item.price else 0.0
-                        total_price += price * qty
+            for ord_summary in res.orderList.order:
+                try:
+                    # Siparişin detaylarını çekiyoruz çünkü OrderList sadece özet (summary) döner.
+                    detail_res = self.order_client.service.OrderDetail(auth=self.auth, orderRequest={'id': ord_summary.id})
+                    if detail_res.result.status == "failure" or not detail_res.orderDetail:
+                        continue
                         
-                        items.append({
-                            "product_sku": sku,
-                            "product_name": title,
-                            "quantity": qty,
-                            "price": price
-                        })
-                
-                fetched_orders.append({
-                    "order_number": order_num,
-                    "customer_name": buyer,
-                    "total_price": total_price,
-                    "status": status,
-                    "order_date": date_str,
-                    "items": items
-                })
+                    ord_data = detail_res.orderDetail
+                    order_num = ord_data.orderNumber or str(ord_data.id)
+                    buyer = ord_data.buyer.fullName if hasattr(ord_data, 'buyer') and ord_data.buyer else "N11 Müşteri"
+                    status = ord_data.status or "New"
+                    date_str = str(ord_data.createDate) if hasattr(ord_data, 'createDate') and ord_data.createDate else None
+                    
+                    items = []
+                    total_price = 0.0
+                    if hasattr(ord_data, 'itemList') and ord_data.itemList and hasattr(ord_data.itemList, 'item') and ord_data.itemList.item:
+                        for item in ord_data.itemList.item:
+                            sku = item.productSellerCode or "N11-NO-SKU"
+                            title = item.productName or ""
+                            qty = int(item.quantity) if item.quantity else 1
+                            price = float(item.price) if item.price else 0.0
+                            total_price += price * qty
+                            
+                            items.append({
+                                "product_sku": sku,
+                                "product_name": title,
+                                "quantity": qty,
+                                "price": price
+                            })
+                    
+                    if not items:
+                        continue
+                        
+                    fetched_orders.append({
+                        "order_number": order_num,
+                        "customer_name": buyer,
+                        "total_price": total_price,
+                        "status": str(status),
+                        "order_date": date_str,
+                        "items": items
+                    })
+                except Exception as e:
+                    print(f"Failed to fetch details for order {ord_summary.id}: {e}")
+                    continue
         except Exception as e:
             print(f"[n11 Order Sync Hatası]: {e}")
             raise e
