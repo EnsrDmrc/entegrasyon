@@ -151,5 +151,5 @@ async def order_patrol_loop():
         except Exception as e:
             print(f"[Patrol] Devriye sırasında hata: {e}")
         
-        # 1 dakika bekle (Kullanıcıya daha hızlı/anlık güncelleniyor hissi vermek için 60 saniyeye düşürüldü)
-        await asyncio.sleep(60)
+        # 90 saniye bekle (Kullanıcı isteği)
+        await asyncio.sleep(90)

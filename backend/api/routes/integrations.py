@@ -167,6 +167,98 @@ async def sync_shopify_orders(current_user: User = Depends(get_current_user), db
         "order_count": order_sync_count
     }
 
+@router.post("/test-shopify")
+async def test_shopify(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "shopify",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+    
+    if not integration:
+        raise HTTPException(status_code=404, detail="Aktif Shopify entegrasyonu bulunamadı")
+        
+    try:
+        from services.marketplace import ShopifyAdapter
+        adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
+        orders = await asyncio.to_thread(adapter.fetch_orders)
+        return {"status": "success", "orders_fetched": len(orders), "sample": orders[:2] if orders else []}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/n11-force-sync/{order_number}")
+async def n11_force_sync(order_number: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Tekil siparişi doğrudan N11 OrderDetail API üzerinden zorla eşitleyen uç
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "n11",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Aktif N11 entegrasyonu bulunamadı")
+        
+    from zeep import Client
+    from zeep.transports import Transport
+    from requests import Session
+    from models.order import Order
+    
+    auth = {'appKey': integration.api_key, 'appSecret': integration.api_secret}
+    transport = Transport(session=Session())
+    client = Client('https://api.n11.com/ws/OrderService.wsdl', transport=transport)
+    
+    try:
+        detail_res = client.service.OrderDetail(auth=auth, orderRequest={'id': order_number})
+        if detail_res.result.status == "failure" or not hasattr(detail_res, 'orderDetail'):
+            return {"error": "N11 OrderDetail api çağrısı başarısız", "raw": str(detail_res.result)}
+            
+        ord_data = detail_res.orderDetail
+        raw_status = str(ord_data.status) if hasattr(ord_data, 'status') else "bilinmiyor"
+        
+        status_map = {
+            "1": "Onay Bekliyor",
+            "2": "Onaylandı",
+            "3": "Reddedildi",
+            "4": "Kargolandı",
+            "5": "Teslim Edildi",
+            "6": "Tamamlandı",
+            "7": "İade Edildi",
+            "8": "İptal Edildi"
+        }
+        mapped_status = status_map.get(raw_status, raw_status)
+        
+        # DB'de güncelle
+        ord_result = await db.execute(select(Order).where(Order.order_number == order_number, Order.tenant_id == current_user.tenant_id))
+        existing = ord_result.scalars().first()
+        
+        updated = False
+        old_status = None
+        if existing:
+            old_status = existing.status
+            if existing.status != mapped_status:
+                existing.status = mapped_status
+                db.add(existing)
+                await db.commit()
+                updated = True
+                
+        return {
+            "order_number": order_number,
+            "n11_raw_status": raw_status,
+            "mapped_status": mapped_status,
+            "old_db_status": old_status,
+            "updated_in_db": updated,
+            "raw_api_data": str(ord_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/sync/n11")
 async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
