@@ -214,7 +214,27 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
     client = Client('https://api.n11.com/ws/OrderService.wsdl', transport=transport)
     
     try:
-        detail_res = client.service.OrderDetail(auth=auth, orderRequest={'id': order_number})
+        # Önce sipariş numarasıyla arama yapıp N11'in iç ID'sini bulmalıyız
+        import datetime
+        end_d = datetime.datetime.now()
+        start_d = end_d - datetime.timedelta(days=180)
+        search_data = {
+            'orderNumber': order_number,
+            'period': {
+                'startDate': start_d.strftime('%d/%m/%Y 00:00'),
+                'endDate': end_d.strftime('%d/%m/%Y 23:59')
+            }
+        }
+        paging = {'currentPage': 0, 'pageSize': 10}
+        list_res = client.service.OrderList(auth=auth, searchData=search_data, pagingData=paging)
+        
+        if list_res.result.status == "failure" or not hasattr(list_res, 'orderList') or not list_res.orderList.order:
+            return {"error": "N11 OrderList siparişi bulamadı", "raw": str(list_res.result)}
+            
+        n11_order_id = list_res.orderList.order[0].id
+        
+        # Şimdi gerçek iç ID ile detayları çek
+        detail_res = client.service.OrderDetail(auth=auth, orderRequest={'id': n11_order_id})
         if detail_res.result.status == "failure" or not hasattr(detail_res, 'orderDetail'):
             return {"error": "N11 OrderDetail api çağrısı başarısız", "raw": str(detail_res.result)}
             
