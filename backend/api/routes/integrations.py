@@ -219,7 +219,13 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
         end_d = datetime.datetime.now()
         start_d = end_d - datetime.timedelta(days=180)
         search_data = {
+            'productId': '',
+            'status': '',
+            'buyerName': '',
             'orderNumber': order_number,
+            'productSellerCode': '',
+            'recipient': '',
+            'sameDayDelivery': '',
             'period': {
                 'startDate': start_d.strftime('%d/%m/%Y 00:00'),
                 'endDate': end_d.strftime('%d/%m/%Y 23:59')
