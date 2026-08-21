@@ -284,7 +284,7 @@ class N11Adapter(MarketplaceAdapter):
                     'startDate': '01/01/2020 00:00',
                     'endDate': '31/12/2030 23:59'
                 },
-                'sortForUpdateDate': False,
+                'sortForUpdateDate': True,
                 'updateDateSortOrder': 'DESC'
             }
             paging = {'currentPage': 0, 'pageSize': 100}
@@ -306,7 +306,18 @@ class N11Adapter(MarketplaceAdapter):
                     ord_data = detail_res.orderDetail
                     order_num = ord_data.orderNumber or str(ord_data.id)
                     buyer = ord_data.buyer.fullName if hasattr(ord_data, 'buyer') and ord_data.buyer else "N11 Müşteri"
-                    status = ord_data.status or "New"
+                    
+                    status_raw = str(ord_data.status) if hasattr(ord_data, 'status') else "1"
+                    status_map = {
+                        "1": "Onay Bekliyor",
+                        "2": "Onaylandı",
+                        "3": "Reddedildi",
+                        "4": "Kargolandı",
+                        "5": "Teslim Edildi",
+                        "6": "İade / İptal"
+                    }
+                    status = status_map.get(status_raw, status_raw)
+                    
                     date_str = str(ord_data.createDate) if hasattr(ord_data, 'createDate') and ord_data.createDate else None
                     
                     items = []

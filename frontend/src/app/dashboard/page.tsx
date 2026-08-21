@@ -8,6 +8,7 @@ export default function DashboardOverview() {
   const [lowStockCount, setLowStockCount] = useState(0);
   const [outOfStockCount, setOutOfStockCount] = useState(0);
   const [activeOrderCount, setActiveOrderCount] = useState(0);
+  const [activeOrdersList, setActiveOrdersList] = useState<any[]>([]);
 
   const router = useRouter();
 
@@ -26,7 +27,7 @@ export default function DashboardOverview() {
           let low = 0;
           let out = 0;
           data.forEach(p => {
-            const totalStock = p.inventories?.reduce((acc: number, curr: any) => acc + curr.quantity, 0) || 0;
+            const totalStock = p.inventories && p.inventories.length > 0 ? p.inventories[0].quantity : 0;
             if (totalStock === 0) out++;
             else if (totalStock < 5) low++;
           });
@@ -47,6 +48,7 @@ export default function DashboardOverview() {
           const oneDayAgo = new Date(Date.now() - 24 * 3600 * 1000);
           const recentOrders = data.filter((o: any) => new Date(o.order_date || o.created_at || new Date()) >= oneDayAgo);
           setActiveOrderCount(recentOrders.length);
+          setActiveOrdersList(recentOrders);
         }
       })
       .catch(console.error);
@@ -102,12 +104,58 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Son Hareketler</h3>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Şu an tüm pazaryerleri senkronize durumdadır. Yakın zamanda bir sipariş hareketi bulunmamaktadır.
-        </p>
-      </div>
+      {activeOrdersList.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', color: '#1e293b' }}>Son 24 Saatteki Siparişler</h2>
+          <div className="card" style={{ overflowX: 'auto', padding: 0 }}>
+            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>Sipariş No</th>
+                  <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>Pazaryeri</th>
+                  <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>Müşteri</th>
+                  <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>Durum</th>
+                  <th style={{ textAlign: 'right', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>Tutar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeOrdersList.map(order => (
+                  <tr key={order.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: 500 }}>{order.order_number}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ 
+                        background: order.marketplace === 'n11' ? '#5b21b6' : '#10b981', 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 600 
+                      }}>
+                        {order.marketplace.toUpperCase()}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#475569' }}>{order.customer_name}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ 
+                        background: '#f1f5f9', 
+                        color: '#334155', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.875rem' 
+                      }}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', color: '#0f172a', fontWeight: 600 }}>
+                      {order.total_price} TL
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </>
   );
 }
