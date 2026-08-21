@@ -7,8 +7,23 @@ function OrdersContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter');
   const [orders, setOrders] = useState<any[]>([]);
-
   const [loading, setLoading] = useState(true);
+
+  const getBadgeClass = (status: string) => {
+    if (!status) return 'badge-blue';
+    const s = status.toLowerCase();
+    if (s.includes('teslim') || s.includes('ödendi') || s.includes('paid') || s.includes('tamamlandı')) return 'badge-green';
+    if (s.includes('bekliyor') || s.includes('pending') || s.includes('yeni')) return 'badge-yellow';
+    if (s.includes('iptal') || s.includes('iade') || s.includes('reddedildi') || s.includes('rejected')) return 'badge-red';
+    return 'badge-blue'; // Onaylandı, Kargolandı, etc.
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (!status) return 'Belirsiz';
+    if (status === 'paid') return 'Ödendi';
+    if (status === 'pending') return 'Bekliyor';
+    return status;
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -96,8 +111,8 @@ function OrdersContent() {
                   <td>{new Date(order.order_date || order.created_at || new Date()).toLocaleString('tr-TR')}</td>
                   <td>{order.total_price} ₺</td>
                   <td>
-                    <span className={`badge ${order.status === 'paid' ? 'badge-green' : order.status === 'pending' ? 'badge-yellow' : 'badge-blue'}`}>
-                      {order.status === 'paid' ? 'Ödendi' : order.status === 'pending' ? 'Bekliyor' : order.status}
+                    <span className={`badge ${getBadgeClass(order.status)}`}>
+                      {getStatusLabel(order.status)}
                     </span>
                   </td>
                 </tr>
