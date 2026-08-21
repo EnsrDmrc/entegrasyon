@@ -271,7 +271,22 @@ class N11Adapter(MarketplaceAdapter):
     def fetch_orders(self) -> list:
         fetched_orders = []
         try:
-            search_data = {'status': 'New'}
+            # N11 WSDL şeması bazı alanların dictionary içinde mutlaka tanımlı olmasını bekler
+            search_data = {
+                'productId': '',
+                'status': 'New',
+                'buyerName': '',
+                'orderNumber': '',
+                'productSellerCode': '',
+                'recipient': '',
+                'sameDayDelivery': '',
+                'period': {
+                    'startDate': '01/01/2020 00:00',
+                    'endDate': '31/12/2030 23:59'
+                },
+                'sortForUpdateDate': False,
+                'updateDateSortOrder': 'DESC'
+            }
             paging = {'currentPage': 0, 'pageSize': 100}
             res = self.order_client.service.OrderList(auth=self.auth, searchData=search_data, pagingData=paging)
             
