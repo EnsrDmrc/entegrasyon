@@ -55,7 +55,8 @@ async def get_my_products(current_user: User = Depends(get_current_user), db: As
 
 from schemas.schemas import ProductUpdateRequest
 from models.integration import MarketplaceIntegration
-from services.marketplace import ShopifyAdapter
+from services.marketplace import ShopifyAdapter, N11Adapter
+import asyncio
 
 @router.put("/me/products/{product_id}")
 async def update_product(
@@ -111,10 +112,31 @@ async def update_product(
 
         if integration and integration.api_key and integration.store_url:
             adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
-            # Hata yapsa bile bizim DB'miz güncellendi, sadece logluyoruz (İsteğe bağlı hata fırlatılabilir)
-            adapter.update_product(
+            # Hata yapsa bile bizim DB'miz güncellendi, sadece logluyoruz
+            await asyncio.to_thread(
+                adapter.update_product,
                 sku=product.sku, 
                 new_price=data.price, 
+                new_stock=data.quantity
+            )
+            
+        # N11'e Push Et
+        n11_result = await db.execute(
+            select(MarketplaceIntegration)
+            .where(
+                MarketplaceIntegration.tenant_id == current_user.tenant_id,
+                MarketplaceIntegration.marketplace_name == "n11",
+                MarketplaceIntegration.is_active == True
+            )
+        )
+        n11_int = n11_result.scalars().first()
+        
+        if n11_int and n11_int.api_key and n11_int.api_secret:
+            n11_adapter = N11Adapter(api_key=str(n11_int.api_key), api_secret=str(n11_int.api_secret))
+            await asyncio.to_thread(
+                n11_adapter.update_product,
+                sku=product.sku,
+                new_price=data.price,
                 new_stock=data.quantity
             )
 
