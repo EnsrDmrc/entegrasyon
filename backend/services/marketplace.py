@@ -271,6 +271,10 @@ class N11Adapter(MarketplaceAdapter):
     def fetch_orders(self) -> list:
         fetched_orders = []
         try:
+            from datetime import datetime, timedelta
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=30)
+            
             # N11 WSDL şeması bazı alanların dictionary içinde mutlaka tanımlı olmasını bekler
             search_data = {
                 'productId': '',
@@ -281,22 +285,37 @@ class N11Adapter(MarketplaceAdapter):
                 'recipient': '',
                 'sameDayDelivery': '',
                 'period': {
-                    'startDate': '01/01/2020 00:00',
-                    'endDate': '31/12/2030 23:59'
+                    'startDate': start_date.strftime('%d/%m/%Y 00:00'),
+                    'endDate': end_date.strftime('%d/%m/%Y 23:59')
                 },
-                'sortForUpdateDate': True,
+                'sortForUpdateDate': False,
                 'updateDateSortOrder': 'DESC'
             }
-            paging = {'currentPage': 0, 'pageSize': 100}
-            res = self.order_client.service.OrderList(auth=self.auth, searchData=search_data, pagingData=paging)
             
-            if res.result.status == "failure":
-                raise Exception(f"N11 API Hatası: {res.result.errorMessage}")
+            all_summaries = []
+            current_page = 0
             
-            if not res.orderList or not res.orderList.order:
-                return fetched_orders
+            while True:
+                paging = {'currentPage': current_page, 'pageSize': 100}
+                res = self.order_client.service.OrderList(auth=self.auth, searchData=search_data, pagingData=paging)
                 
-            for ord_summary in res.orderList.order:
+                if res.result.status == "failure":
+                    raise Exception(f"N11 API Hatası: {res.result.errorMessage}")
+                
+                if not res.orderList or not res.orderList.order:
+                    break
+                    
+                all_summaries.extend(res.orderList.order)
+                
+                page_count = res.pagingData.pageCount if hasattr(res, 'pagingData') and hasattr(res.pagingData, 'pageCount') else 1
+                current_page += 1
+                if current_page >= page_count:
+                    break
+            
+            # N11 eski tarihli siparişleri ilk sayfalarda döner (ASC), biz en son siparişleri istiyoruz
+            latest_100_summaries = all_summaries[-100:] if len(all_summaries) > 100 else all_summaries
+            
+            for ord_summary in latest_100_summaries:
                 try:
                     # Siparişin detaylarını çekiyoruz çünkü OrderList sadece özet (summary) döner.
                     detail_res = self.order_client.service.OrderDetail(auth=self.auth, orderRequest={'id': ord_summary.id})
