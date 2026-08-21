@@ -1,0 +1,6 @@
+<svg viewBox="0 0 160 50" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(5, 5)">
+    <text x="0" y="32" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="34" font-weight="bold" fill="#666666" letter-spacing="-1.5">pazarama</text>
+    <circle cx="13" cy="20" r="4.5" fill="#e90c59" />
+  </g>
+</svg>

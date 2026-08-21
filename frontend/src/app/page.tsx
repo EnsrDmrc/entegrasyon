@@ -60,10 +60,10 @@ export default function Home() {
               <img src="https://upload.wikimedia.org/wikipedia/commons/b/be/N11_Logo_2025.svg" alt="N11" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="/logos/pazarama_real.png" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/pazarama_real.svg" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
-              <img src="/logos/ciceksepeti_real.png" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+              <img src="/logos/ciceksepeti_real.svg" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
             </div>
             <div className="integration-card">
               <img src="https://upload.wikimedia.org/wikipedia/commons/6/63/OpenCart_logo.svg" alt="Opencart" style={{ maxHeight: '30px', maxWidth: '100%' }} />
