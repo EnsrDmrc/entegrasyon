@@ -330,8 +330,8 @@ class N11Adapter(MarketplaceAdapter):
                     
                     status_raw = str(ord_data.status) if hasattr(ord_data, 'status') else "1"
                     status_map = {
-                        "1": "Ödeme Bekliyor",
-                        "2": "Onay Bekliyor",
+                        "1": "Yeni Sipariş",
+                        "2": "Onaylandı",
                         "3": "Reddedildi",
                         "4": "Kargolandı",
                         "5": "Teslim Edildi",

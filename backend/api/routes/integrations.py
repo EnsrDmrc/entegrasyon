@@ -251,8 +251,8 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
         raw_status = str(ord_data.status) if hasattr(ord_data, 'status') else "bilinmiyor"
         
         status_map = {
-            "1": "Ödeme Bekliyor",
-            "2": "Onay Bekliyor",
+            "1": "Yeni Sipariş",
+            "2": "Onaylandı",
             "3": "Reddedildi",
             "4": "Kargolandı",
             "5": "Teslim Edildi",
