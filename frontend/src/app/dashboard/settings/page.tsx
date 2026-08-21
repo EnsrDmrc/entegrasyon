@@ -508,39 +508,6 @@ export default function SettingsPage() {
                         >
                           {n11OrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
                         </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary"
-                          onClick={handleClearOrders}
-                          disabled={n11Syncing || n11OrderSyncing}
-                          style={{ backgroundColor: '#fee2e2', color: '#b91c1c', borderColor: '#fecaca' }}
-                        >
-                          Sipariş Geçmişini Temizle
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-primary"
-                          onClick={async () => {
-                            setN11Syncing(true);
-                            try {
-                              const token = localStorage.getItem('token');
-                              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/push-n11-stocks`, {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${token}` }
-                              });
-                              const data = await res.json();
-                              setN11Message({ type: res.ok ? 'success' : 'error', text: data.message || data.detail });
-                            } catch (e: any) {
-                              setN11Message({ type: 'error', text: e.message });
-                            } finally {
-                              setN11Syncing(false);
-                            }
-                          }}
-                          disabled={n11Syncing || n11OrderSyncing}
-                          style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
-                        >
-                          Stokları Shopify'a İt (1 Seferlik)
-                        </button>
                       </>
                     )}
                   </div>
