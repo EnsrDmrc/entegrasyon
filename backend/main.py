@@ -2,9 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 
+from contextlib import asynccontextmanager
+import asyncio
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from services.patrol import order_patrol_loop
+    # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
+    task = asyncio.create_task(order_patrol_loop())
+    yield
+    # Kapanışta iptal et (isterseniz task.cancel() eklenebilir)
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 
 # CORS ayarları
