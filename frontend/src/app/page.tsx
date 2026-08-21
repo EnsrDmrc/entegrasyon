@@ -40,17 +40,37 @@ export default function Home() {
       <section className="landing-integrations animate-fade-in" style={{ animationDelay: '0.5s' }}>
         <div className="landing-integrations-container">
           <div className="integrations-grid">
-            <div className="integration-card brand-trendyol">trendyol</div>
-            <div className="integration-card brand-hepsiburada">hepsiburada</div>
-            <div className="integration-card brand-amazon">amazon</div>
-            <div className="integration-card brand-shopify">Shopify</div>
-            <div className="integration-card brand-woocommerce">WooCommerce</div>
+            <div className="integration-card">
+              <img src="https://cdn.dsmcdn.com/web/logo/ty-web.svg" alt="Trendyol" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://images.hepsiburada.net/assets/sf/mweb/logo.svg" alt="Hepsiburada" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" alt="Amazon" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg" alt="Shopify" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/WooCommerce_logo.svg" alt="WooCommerce" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
             
-            <div className="integration-card brand-n11">n11</div>
-            <div className="integration-card brand-pazarama">pazarama</div>
-            <div className="integration-card brand-ciceksepeti">ÇiçekSepeti</div>
-            <div className="integration-card brand-opencart">opencart</div>
-            <div className="integration-card brand-pttavm">PttAVM</div>
+            <div className="integration-card">
+              <img src="https://n11scdn.akamaized.net/a1/org/24/07/22/27/98/08/90/13/26/66/83/87/4405908862908846313.svg" alt="N11" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://www.pazarama.com/assets/images/logo.svg" alt="Pazarama" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://cdn.ciceksepeti.com/cicek-resim/xh/ciceksepeti-logo.svg" alt="Çiçeksepeti" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Opencart_logo.svg" alt="Opencart" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
+            <div className="integration-card">
+              <img src="https://cdn.pttavm.com/c/m/1722883072.svg" alt="PttAVM" style={{ maxHeight: '30px', maxWidth: '100%' }} />
+            </div>
           </div>
           <div className="integrations-cta">
             <Link href="/login" className="integrations-cta-btn">
