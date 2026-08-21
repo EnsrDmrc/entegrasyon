@@ -415,33 +415,94 @@ body {
   display: block;
 }
 
-.landing-marquee {
+.landing-integrations {
   background: white;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding: 2rem 0;
-  overflow: hidden;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
+  padding: 4rem 5%;
 }
 
-.landing-marquee-content {
-  display: flex;
-  gap: 4rem;
-  animation: scrollMarquee 20s linear infinite;
-  align-items: center;
+.landing-integrations-container {
+  max-width: 1000px;
+  margin: 0 auto;
 }
-.landing-marquee-content span {
-  font-size: 1.5rem;
+
+.integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .integrations-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .integrations-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.integration-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  color: #94a3b8;
-  opacity: 0.8;
+  color: #64748b;
+  cursor: default;
+  transition: all 0.3s ease;
+  filter: grayscale(100%);
+  opacity: 0.6;
 }
 
-@keyframes scrollMarquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+.integration-card:hover {
+  filter: grayscale(0%);
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Simulated brand colors for text-logos on hover */
+.integration-card.brand-trendyol:hover { color: #f27a1a; }
+.integration-card.brand-hepsiburada:hover { color: #ff6000; }
+.integration-card.brand-amazon:hover { color: #ff9900; }
+.integration-card.brand-woocommerce:hover { color: #96588a; }
+.integration-card.brand-n11:hover { color: #1a0072; }
+.integration-card.brand-pazarama:hover { color: #e90c59; }
+.integration-card.brand-ciceksepeti:hover { color: #009629; }
+.integration-card.brand-opencart:hover { color: #23a1d1; }
+.integration-card.brand-pttavm:hover { color: #f1c40f; }
+.integration-card.brand-shopify:hover { color: #95bf47; }
+
+.integrations-cta {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.integrations-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  background-color: #0f172a;
+  color: #38bdf8;
+  padding: 0.75rem 2rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.integrations-cta-btn:hover {
+  background-color: #1e293b;
+  color: #7dd3fc;
+  transform: translateY(-1px);
 }
 
 .landing-features {

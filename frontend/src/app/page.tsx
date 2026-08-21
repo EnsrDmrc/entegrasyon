@@ -36,32 +36,27 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Marquee Section */}
-      <section className="landing-marquee animate-fade-in" style={{ animationDelay: '0.5s' }}>
-        <div className="landing-marquee-content">
-          <span>Shopify</span>
-          <span>•</span>
-          <span>N11</span>
-          <span>•</span>
-          <span>Trendyol</span>
-          <span>•</span>
-          <span>Hepsiburada</span>
-          <span>•</span>
-          <span>WooCommerce</span>
-          <span>•</span>
-          <span>Amazon</span>
-          <span>•</span>
-          <span>Shopify</span>
-          <span>•</span>
-          <span>N11</span>
-          <span>•</span>
-          <span>Trendyol</span>
-          <span>•</span>
-          <span>Hepsiburada</span>
-          <span>•</span>
-          <span>WooCommerce</span>
-          <span>•</span>
-          <span>Amazon</span>
+      {/* Integrations Grid Section */}
+      <section className="landing-integrations animate-fade-in" style={{ animationDelay: '0.5s' }}>
+        <div className="landing-integrations-container">
+          <div className="integrations-grid">
+            <div className="integration-card brand-trendyol">trendyol</div>
+            <div className="integration-card brand-hepsiburada">hepsiburada</div>
+            <div className="integration-card brand-amazon">amazon</div>
+            <div className="integration-card brand-shopify">Shopify</div>
+            <div className="integration-card brand-woocommerce">WooCommerce</div>
+            
+            <div className="integration-card brand-n11">n11</div>
+            <div className="integration-card brand-pazarama">pazarama</div>
+            <div className="integration-card brand-ciceksepeti">ÇiçekSepeti</div>
+            <div className="integration-card brand-opencart">opencart</div>
+            <div className="integration-card brand-pttavm">PttAVM</div>
+          </div>
+          <div className="integrations-cta">
+            <Link href="/login" className="integrations-cta-btn">
+              Tüm Çözüm Ortaklarımızı İnceleyin →
+            </Link>
+          </div>
         </div>
       </section>
 
