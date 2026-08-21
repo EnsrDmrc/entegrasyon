@@ -288,7 +288,7 @@ class N11Adapter(MarketplaceAdapter):
                     'startDate': start_date.strftime('%d/%m/%Y 00:00'),
                     'endDate': end_date.strftime('%d/%m/%Y 23:59')
                 },
-                'sortForUpdateDate': False,
+                'sortForUpdateDate': True,
                 'updateDateSortOrder': 'DESC'
             }
             
@@ -312,8 +312,9 @@ class N11Adapter(MarketplaceAdapter):
                 if current_page >= page_count:
                     break
             
-            # N11 eski tarihli siparişleri ilk sayfalarda döner (ASC), biz en son siparişleri istiyoruz
-            latest_100_summaries = all_summaries[-100:] if len(all_summaries) > 100 else all_summaries
+            # Güncellenme tarihine göre DESC sıralandığı için ilk sayfalarda en son güncellenenler gelir
+            # Performans için sadece en son güncellenen 100 siparişi detaylı çekiyoruz
+            latest_100_summaries = all_summaries[:100] if len(all_summaries) > 100 else all_summaries
             
             for ord_summary in latest_100_summaries:
                 try:
