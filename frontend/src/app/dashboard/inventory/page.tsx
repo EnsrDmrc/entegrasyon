@@ -33,7 +33,11 @@ function InventoryContent() {
         const data = await response.json();
         if (Array.isArray(data)) {
           const mapped = data.map(p => {
-            const totalStock = p.inventories?.reduce((acc: number, curr: any) => acc + curr.quantity, 0) || 0;
+            // Stok miktarını pazaryerlerinin toplamı olarak değil, tek bir kayıt olarak al.
+            // Çünkü bir ürünün fiziksel stoğu tektir ve tüm pazaryerlerine aynı sayı yansıtılır.
+            const totalStock = p.inventories && p.inventories.length > 0 
+              ? p.inventories[0].quantity 
+              : 0;
             return {
               id: p.id,
               sku: p.sku,
