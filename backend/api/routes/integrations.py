@@ -338,7 +338,7 @@ async def sync_n11_orders(current_user: User = Depends(get_current_user), db: As
         parsed_date = None
         if ord_data["order_date"]:
             try:
-                parsed_date = parser.parse(ord_data["order_date"])
+                parsed_date = parser.parse(ord_data["order_date"], dayfirst=True)
             except:
                 pass
 

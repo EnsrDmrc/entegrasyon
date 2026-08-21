@@ -135,3 +135,23 @@ async def get_my_orders(current_user: User = Depends(get_current_user), db: Asyn
     )
     orders = result.scalars().all()
     return orders
+
+@router.delete("/me/orders")
+async def clear_my_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import text
+    try:
+        # Önce sipariş kalemlerini siliyoruz (Foreign Key kısıtlaması nedeniyle)
+        await db.execute(
+            text("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE tenant_id = :tenant_id)"),
+            {"tenant_id": current_user.tenant_id}
+        )
+        # Sonra siparişlerin kendisini siliyoruz
+        await db.execute(
+            text("DELETE FROM orders WHERE tenant_id = :tenant_id"),
+            {"tenant_id": current_user.tenant_id}
+        )
+        await db.commit()
+        return {"message": "Tüm geçmiş sipariş kayıtları başarıyla silindi!"}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Siparişler silinirken hata oluştu: {str(e)}")

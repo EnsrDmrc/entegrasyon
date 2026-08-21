@@ -241,6 +241,31 @@ export default function SettingsPage() {
     }
   };
 
+  const handleClearOrders = async () => {
+    if (!window.confirm("Tüm sipariş geçmişini silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+    
+    setN11OrderSyncing(true);
+    setN11Message(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Siparişler silinemedi');
+      }
+      setN11Message({ type: 'success', text: data.message });
+    } catch (error: any) {
+      setN11Message({ type: 'error', text: error.message });
+    } finally {
+      setN11OrderSyncing(false);
+      setTimeout(() => setN11Message(null), 5000);
+    }
+  };
+
   const handleSyncN11Orders = async () => {
     setN11OrderSyncing(true);
     setN11Message(null);
@@ -481,7 +506,16 @@ export default function SettingsPage() {
                           disabled={n11Syncing || n11OrderSyncing}
                           style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
                         >
-                          {n11OrderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
+                          {n11OrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleClearOrders}
+                          disabled={n11Syncing || n11OrderSyncing}
+                          style={{ backgroundColor: '#fee2e2', color: '#b91c1c', borderColor: '#fecaca' }}
+                        >
+                          Sipariş Geçmişini Temizle
                         </button>
                         <button 
                           type="button" 
