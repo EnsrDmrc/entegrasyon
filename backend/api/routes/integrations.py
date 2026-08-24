@@ -15,8 +15,44 @@ from services.marketplace import ShopifyAdapter, N11Adapter
 
 router = APIRouter()
 
+async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, modified_prices: list):
+    if not modified_prices: return
+    
+    from core.database import AsyncSessionLocal
+    from services.marketplace import ShopifyAdapter, N11Adapter, TrendyolAdapter, HepsiburadaAdapter
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(MarketplaceIntegration)
+            .where(MarketplaceIntegration.tenant_id == tenant_id, MarketplaceIntegration.is_active == True)
+        )
+        integrations = result.scalars().all()
+        
+        for integration in integrations:
+            if integration.marketplace_name == origin_marketplace:
+                continue
+                
+            adapter = None
+            try:
+                if integration.marketplace_name == "shopify" and integration.api_key and integration.store_url:
+                    adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
+                elif integration.marketplace_name == "n11" and integration.api_key and integration.api_secret:
+                    adapter = N11Adapter(api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+                elif integration.marketplace_name == "trendyol" and integration.api_key and integration.api_secret and integration.store_url:
+                    adapter = TrendyolAdapter(supplier_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+                elif integration.marketplace_name == "hepsiburada" and integration.api_key and integration.store_url:
+                    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+                    
+                if adapter:
+                    for sku, new_price in modified_prices:
+                        await asyncio.to_thread(adapter.update_product, sku, new_price=new_price)
+                        print(f"[Price Sync] Pushed price {new_price} for {sku} to {integration.marketplace_name}")
+            except Exception as e:
+                print(f"[Price Sync Error] Failed to push to {integration.marketplace_name}: {e}")
+
+
 @router.post("/sync/shopify")
-async def sync_shopify(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def sync_shopify(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # 1. Tenant'ın Shopify entegrasyonunu bul
     result = await db.execute(
         select(MarketplaceIntegration)
@@ -40,6 +76,8 @@ async def sync_shopify(current_user: User = Depends(get_current_user), db: Async
 
     # 3. Veritabanı Güncelleme İşlemi
     sync_count = 0
+    modified_prices = []
+    
     for item in fetched_items:
         # Ürünü SKU ile ara (Tenant bazlı izolasyon)
         prod_result = await db.execute(
@@ -64,7 +102,9 @@ async def sync_shopify(current_user: User = Depends(get_current_user), db: Async
         else:
             # Ürün zaten varsa ismini ve fiyatını da Shopify'dan güncelleyelim
             product.name = item["name"]
-            product.price = item["price"]
+            if product.price != float(item["price"]):
+                product.price = float(item["price"])
+                modified_prices.append((item["sku"], product.price))
             db.add(product)
             await db.commit()
 
@@ -89,6 +129,9 @@ async def sync_shopify(current_user: User = Depends(get_current_user), db: Async
         
         await db.commit()
         sync_count += 1
+
+    if modified_prices:
+        background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "shopify", modified_prices)
 
     # Sipariş tarafı yeni endpoint'e taşındı.
     return {"message": "Ürünler başarıyla senkronize edildi", "count": sync_count}
@@ -288,7 +331,7 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/sync/n11")
-async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MarketplaceIntegration)
         .where(
@@ -312,6 +355,8 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
         return {"message": "N11'de çekilecek ürün bulunamadı.", "count": 0}
 
     sync_count = 0
+    modified_prices = []
+    
     for item in fetched_items:
         # Ürünü SKU ile ara (Tekilleştirme / Deduplication)
         prod_result = await db.execute(
@@ -334,9 +379,11 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
             await db.commit()
             await db.refresh(product)
         else:
-            # Sadece N11 fiyatını kullanarak ana ürünü güncellemeyelim, stok mappingi önemli.
-            # Veritabanında ürün olduğu için pas geçiyoruz, stok Inventory tablosunda güncellenecek.
-            pass
+            if product.price != float(item["price"]):
+                product.price = float(item["price"])
+                db.add(product)
+                await db.commit()
+                modified_prices.append((item["sku"], product.price))
 
         # N11 stok kaydını oluştur
         inv_result = await db.execute(
@@ -359,6 +406,9 @@ async def sync_n11(current_user: User = Depends(get_current_user), db: AsyncSess
         
         await db.commit()
         sync_count += 1
+
+    if modified_prices:
+        background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "n11", modified_prices)
 
     return {"message": "N11 ürünleri başarıyla senkronize edildi", "count": sync_count}
 
@@ -500,7 +550,7 @@ async def sync_n11_orders(current_user: User = Depends(get_current_user), db: As
     }
 
 @router.post("/sync/hepsiburada")
-async def sync_hepsiburada(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def sync_hepsiburada(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MarketplaceIntegration)
         .where(
@@ -526,6 +576,8 @@ async def sync_hepsiburada(current_user: User = Depends(get_current_user), db: A
         return {"message": "Hepsiburada'da çekilecek ürün bulunamadı.", "count": 0}
 
     sync_count = 0
+    modified_prices = []
+    
     for item in fetched_items:
         prod_result = await db.execute(
             select(Product).where(
@@ -545,6 +597,12 @@ async def sync_hepsiburada(current_user: User = Depends(get_current_user), db: A
             db.add(product)
             await db.commit()
             await db.refresh(product)
+        else:
+            if product.price != float(item["price"]):
+                product.price = float(item["price"])
+                db.add(product)
+                await db.commit()
+                modified_prices.append((item["sku"], product.price))
 
         inv_result = await db.execute(
             select(Inventory).where(
@@ -566,6 +624,9 @@ async def sync_hepsiburada(current_user: User = Depends(get_current_user), db: A
         
         await db.commit()
         sync_count += 1
+
+    if modified_prices:
+        background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "hepsiburada", modified_prices)
 
     return {"message": "Hepsiburada ürünleri başarıyla senkronize edildi", "count": sync_count}
 
@@ -651,7 +712,7 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
 
 
 @router.post("/sync/trendyol")
-async def sync_trendyol(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def sync_trendyol(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MarketplaceIntegration)
         .where(
@@ -677,6 +738,8 @@ async def sync_trendyol(current_user: User = Depends(get_current_user), db: Asyn
         return {"message": "Trendyol'da çekilecek ürün bulunamadı.", "count": 0}
 
     sync_count = 0
+    modified_prices = []
+    
     for item in fetched_items:
         prod_result = await db.execute(
             select(Product).where(
@@ -696,6 +759,12 @@ async def sync_trendyol(current_user: User = Depends(get_current_user), db: Asyn
             db.add(product)
             await db.commit()
             await db.refresh(product)
+        else:
+            if product.price != float(item["price"]):
+                product.price = float(item["price"])
+                db.add(product)
+                await db.commit()
+                modified_prices.append((item["sku"], product.price))
 
         inv_result = await db.execute(
             select(Inventory).where(
@@ -717,6 +786,9 @@ async def sync_trendyol(current_user: User = Depends(get_current_user), db: Asyn
         
         await db.commit()
         sync_count += 1
+
+    if modified_prices:
+        background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "trendyol", modified_prices)
 
     return {"message": "Trendyol ürünleri başarıyla senkronize edildi", "count": sync_count}
 
