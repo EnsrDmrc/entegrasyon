@@ -450,6 +450,13 @@ class HepsiburadaAdapter(MarketplaceAdapter):
         self.base_url_order = "https://oms-external.hepsiburada.com/packages/merchantid"
         
     def fetch_all_products(self) -> list:
+        # TEST (MOCK) MODU
+        if self.merchant_id.lower() == "test":
+            return [
+                {"sku": "HB-TEST-001", "name": "Hepsiburada Test Ürünü 1", "price": 250.0, "quantity": 15, "marketplace": "hepsiburada"},
+                {"sku": "HB-TEST-002", "name": "Hepsiburada Test Ürünü 2", "price": 499.99, "quantity": 3, "marketplace": "hepsiburada"}
+            ]
+            
         fetched_variants = []
         try:
             with httpx.Client() as client:
@@ -482,6 +489,23 @@ class HepsiburadaAdapter(MarketplaceAdapter):
         return fetched_variants
 
     def fetch_orders(self) -> list:
+        # TEST (MOCK) MODU
+        if self.merchant_id.lower() == "test":
+            from datetime import datetime
+            return [
+                {
+                    "order_number": f"HB-ORD-{int(datetime.now().timestamp())}",
+                    "customer_name": "Test Müşteri Hepsiburada",
+                    "total_price": 749.99,
+                    "status": "Yeni Sipariş",
+                    "order_date": datetime.now().isoformat(),
+                    "items": [
+                        {"product_sku": "HB-TEST-001", "product_name": "Hepsiburada Test Ürünü 1", "quantity": 1, "price": 250.0},
+                        {"product_sku": "HB-TEST-002", "product_name": "Hepsiburada Test Ürünü 2", "quantity": 1, "price": 499.99}
+                    ]
+                }
+            ]
+            
         fetched_orders = []
         try:
             with httpx.Client() as client:
