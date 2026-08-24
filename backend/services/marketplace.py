@@ -594,3 +594,170 @@ class HepsiburadaAdapter(MarketplaceAdapter):
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Hepsiburada Ürünü", "price": 0.0}
+
+class TrendyolAdapter(MarketplaceAdapter):
+    def __init__(self, supplier_id: str, api_key: str, api_secret: str):
+        self.supplier_id = supplier_id.strip()
+        self.api_key = api_key.strip()
+        self.api_secret = api_secret.strip()
+        
+        auth_string = f"{self.api_key}:{self.api_secret}"
+        encoded_auth = base64.b64encode(auth_string.encode()).decode()
+        
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Basic {encoded_auth}",
+            "User-Agent": "EntegrasyonApp/1.0"
+        }
+        
+        self.base_url = "https://api.trendyol.com/sapigw/suppliers"
+        
+    def fetch_all_products(self) -> list:
+        # TEST (MOCK) MODU
+        if self.supplier_id.lower() == "test":
+            return [
+                {"sku": "TY-TEST-001", "name": "Trendyol Test Ürünü 1", "price": 120.0, "quantity": 50, "marketplace": "trendyol"},
+                {"sku": "TY-TEST-002", "name": "Trendyol Test Ürünü 2", "price": 85.50, "quantity": 10, "marketplace": "trendyol"}
+            ]
+            
+        fetched_variants = []
+        try:
+            with httpx.Client() as client:
+                # Trendyol ürün çekme API'si (Örnek Endpoint)
+                url = f"{self.base_url}/{self.supplier_id}/products?page=0&size=100"
+                response = client.get(url, headers=self.headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("content", [])
+                    for item in content:
+                        sku = item.get("barcode") or item.get("stockCode")
+                        if not sku:
+                            continue
+                            
+                        fetched_variants.append({
+                            "sku": sku,
+                            "name": item.get("title", f"Trendyol Ürünü - {sku}"),
+                            "price": float(item.get("salePrice", 0.0)),
+                            "quantity": int(item.get("quantity", 0)),
+                            "marketplace": "trendyol"
+                        })
+                elif response.status_code in (401, 403):
+                    print("[Trendyol] Yetkilendirme hatası (API Key, Secret veya Supplier ID geçersiz)")
+                else:
+                    print(f"[Trendyol] API Hatası: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"[Trendyol Sync Hatası]: {e}")
+            
+        return fetched_variants
+
+    def fetch_orders(self) -> list:
+        # TEST (MOCK) MODU
+        if self.supplier_id.lower() == "test":
+            from datetime import datetime
+            return [
+                {
+                    "order_number": f"TY-ORD-{int(datetime.now().timestamp())}",
+                    "customer_name": "Test Müşteri Trendyol",
+                    "total_price": 205.50,
+                    "status": "Yeni Sipariş",
+                    "order_date": datetime.now().isoformat(),
+                    "items": [
+                        {"product_sku": "TY-TEST-001", "product_name": "Trendyol Test Ürünü 1", "quantity": 1, "price": 120.0},
+                        {"product_sku": "TY-TEST-002", "product_name": "Trendyol Test Ürünü 2", "quantity": 1, "price": 85.50}
+                    ]
+                }
+            ]
+            
+        fetched_orders = []
+        try:
+            with httpx.Client() as client:
+                import datetime
+                end_date = int(datetime.datetime.now().timestamp() * 1000)
+                start_date = int((datetime.datetime.now() - datetime.timedelta(days=15)).timestamp() * 1000)
+                
+                # Trendyol Sipariş Çekme API'si
+                url = f"{self.base_url}/{self.supplier_id}/orders?startDate={start_date}&endDate={end_date}&size=100"
+                response = client.get(url, headers=self.headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("content", [])
+                    for pkg in content:
+                        order_number = pkg.get("orderNumber")
+                        if not order_number: continue
+                        
+                        customer_name = pkg.get("shipmentAddress", {}).get("fullName", "Trendyol Müşterisi")
+                        
+                        items = []
+                        total_price = 0.0
+                        
+                        for line in pkg.get("lines", []):
+                            price = float(line.get("price", 0.0))
+                            qty = int(line.get("quantity", 1))
+                            total_price += price * qty
+                            
+                            items.append({
+                                "product_sku": line.get("barcode", "TY-UNKNOWN"),
+                                "product_name": line.get("productName", ""),
+                                "quantity": qty,
+                                "price": price
+                            })
+                            
+                        # Statüyü eşleştir
+                        raw_status = pkg.get("status", "Created")
+                        status_map = {
+                            "Created": "Yeni Sipariş",
+                            "Picking": "Toplanıyor",
+                            "Invoiced": "Faturalandı",
+                            "Shipped": "Kargolandı",
+                            "Delivered": "Teslim Edildi",
+                            "Cancelled": "İptal Edildi",
+                            "Returned": "İade Edildi"
+                        }
+                        
+                        # Trendyol timestamp milisaniye olarak döner
+                        order_timestamp = pkg.get("orderDate", 0)
+                        order_date = datetime.datetime.fromtimestamp(order_timestamp / 1000.0).isoformat() if order_timestamp else None
+
+                        fetched_orders.append({
+                            "order_number": str(order_number),
+                            "customer_name": customer_name,
+                            "total_price": total_price,
+                            "status": status_map.get(raw_status, raw_status),
+                            "order_date": order_date,
+                            "items": items
+                        })
+                elif response.status_code in (401, 403):
+                    print("[Trendyol Order] Yetkilendirme hatası")
+        except Exception as e:
+            print(f"[Trendyol Order Sync Hatası]: {e}")
+            
+        return fetched_orders
+
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        success = True
+        try:
+            with httpx.Client() as client:
+                url = f"{self.base_url}/{self.supplier_id}/products/price-and-inventory"
+                
+                payload_item = {"barcode": sku}
+                if new_price is not None:
+                    payload_item["salePrice"] = float(new_price)
+                if new_stock is not None:
+                    payload_item["quantity"] = int(new_stock)
+                    
+                payload = {"items": [payload_item]}
+                response = client.post(url, headers=self.headers, json=payload)
+                
+                if response.status_code not in (200, 201, 202):
+                    print(f"[Trendyol] Stok/Fiyat güncellenemedi ({sku}): {response.text}")
+                    success = False
+        except Exception as e:
+            print(f"[Trendyol] API Hatası: {e}")
+            success = False
+            
+        return success
+
+    def get_product_details(self, sku: str) -> dict:
+        return {"sku": sku, "name": "Trendyol Ürünü", "price": 0.0}

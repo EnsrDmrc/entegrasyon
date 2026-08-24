@@ -21,11 +21,13 @@ async def process_tenant_orders(session, tenant_id: int):
     n11_int = next((i for i in integrations if i.marketplace_name == 'n11'), None)
     shopify_int = next((i for i in integrations if i.marketplace_name == 'shopify'), None)
     hepsiburada_int = next((i for i in integrations if i.marketplace_name == 'hepsiburada'), None)
+    trendyol_int = next((i for i in integrations if i.marketplace_name == 'trendyol'), None)
     
     fetched_orders = []
     n11_adapter = None
     shopify_adapter = None
     hepsiburada_adapter = None
+    trendyol_adapter = None
     
     try:
         # Fetch N11 orders
@@ -61,6 +63,18 @@ async def process_tenant_orders(session, tenant_id: int):
             fetched_orders.extend(hb_orders)
     except Exception as e:
         print(f"[Patrol] Hepsiburada Order fetch failed for tenant {tenant_id}: {e}")
+
+    try:
+        # Fetch Trendyol orders
+        from services.marketplace import TrendyolAdapter
+        if trendyol_int and trendyol_int.api_key and trendyol_int.api_secret and trendyol_int.store_url:
+            trendyol_adapter = TrendyolAdapter(supplier_id=str(trendyol_int.store_url), api_key=str(trendyol_int.api_key), api_secret=str(trendyol_int.api_secret))
+            ty_orders = await asyncio.to_thread(trendyol_adapter.fetch_orders)
+            for o in ty_orders:
+                o["marketplace"] = "trendyol"
+            fetched_orders.extend(ty_orders)
+    except Exception as e:
+        print(f"[Patrol] Trendyol Order fetch failed for tenant {tenant_id}: {e}")
     
     for ord_data in fetched_orders:
         order_number = ord_data.get("order_number")
@@ -157,6 +171,10 @@ async def process_tenant_orders(session, tenant_id: int):
             # Hepsiburada'ya it
             if hepsiburada_adapter:
                 await asyncio.to_thread(hepsiburada_adapter.update_product, sku, new_stock=new_stock)
+
+            # Trendyol'a it
+            if trendyol_adapter:
+                await asyncio.to_thread(trendyol_adapter.update_product, sku, new_stock=new_stock)
 
 async def order_patrol_loop():
     print("[Patrol] Sipariş Devriyesi başlatıldı! Her 1 dakikada bir çalışacak.")

@@ -36,6 +36,15 @@ export default function SettingsPage() {
   const [hepsiburadaOrderSyncing, setHepsiburadaOrderSyncing] = useState(false);
   const [hepsiburadaMessage, setHepsiburadaMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
+  const [trendyolData, setTrendyolData] = useState({
+    supplier_id: '',
+    api_key: '',
+    api_secret: ''
+  });
+  const [trendyolSyncing, setTrendyolSyncing] = useState(false);
+  const [trendyolOrderSyncing, setTrendyolOrderSyncing] = useState(false);
+  const [trendyolMessage, setTrendyolMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   useEffect(() => {
     // Mevcut entegrasyonları getir
     const token = localStorage.getItem('token');
@@ -57,6 +66,10 @@ export default function SettingsPage() {
           const hepsiburada = data.find(i => i.marketplace_name === 'hepsiburada');
           if (hepsiburada) {
             setHepsiburadaData({ merchant_id: hepsiburada.store_url || '', api_key: '********' });
+          }
+          const trendyol = data.find(i => i.marketplace_name === 'trendyol');
+          if (trendyol) {
+            setTrendyolData({ supplier_id: trendyol.store_url || '', api_key: '********', api_secret: '********' });
           }
         }
       })
@@ -405,6 +418,81 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveTrendyol = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTrendyolMessage(null);
+
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          marketplace_name: 'trendyol',
+          store_url: trendyolData.supplier_id,
+          api_key: trendyolData.api_key.includes('*') ? undefined : trendyolData.api_key,
+          api_secret: trendyolData.api_secret.includes('*') ? undefined : trendyolData.api_secret,
+          is_active: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Kaydedilemedi');
+      setTrendyolMessage({ type: 'success', text: 'Trendyol bilgileri kaydedildi!' });
+    } catch (err: any) {
+      setTrendyolMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleSyncTrendyol = async () => {
+    setTrendyolSyncing(true);
+    setTrendyolMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Senkronizasyon başarısız');
+      }
+      setTrendyolMessage({ type: 'success', text: `${data.count} ürün senkronize edildi!` });
+    } catch (error: any) {
+      setTrendyolMessage({ type: 'error', text: error.message });
+    } finally {
+      setTrendyolSyncing(false);
+      setTimeout(() => setTrendyolMessage(null), 5000);
+    }
+  };
+
+  const handleSyncTrendyolOrders = async () => {
+    setTrendyolOrderSyncing(true);
+    setTrendyolMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol/orders`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Sipariş senkronizasyonu başarısız');
+      }
+      setTrendyolMessage({ type: 'success', text: `${data.order_count} sipariş başarıyla çekildi/güncellendi!` });
+    } catch (error: any) {
+      setTrendyolMessage({ type: 'error', text: error.message });
+    } finally {
+      setTrendyolOrderSyncing(false);
+      setTimeout(() => setTrendyolMessage(null), 5000);
+    }
+  };
+
   return (
     <>
       <h1 style={{ fontSize: '1.875rem', fontWeight: 700, marginBottom: '1.5rem' }}>Ayarlar</h1>
@@ -716,6 +804,83 @@ export default function SettingsPage() {
                           style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
                         >
                           {hepsiburadaOrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Trendyol Entegrasyonu */}
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Trendyol Bağlantısı</h4>
+                  {trendyolData.supplier_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Trendyol Satıcı ID (Supplier ID), API Key ve API Secret bilgilerinizi girerek ürünlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {trendyolMessage && (
+                  <div className={`badge ${trendyolMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {trendyolMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveTrendyol}>
+                  <div className="input-group">
+                    <label className="input-label">Satıcı ID (Supplier ID)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Trendyol Satıcı ID'nizi giriniz" 
+                      value={trendyolData.supplier_id}
+                      onChange={(e) => setTrendyolData({...trendyolData, supplier_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">API Key</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Trendyol API Key giriniz" 
+                      value={trendyolData.api_key}
+                      onChange={(e) => setTrendyolData({...trendyolData, api_key: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">API Secret</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Trendyol API Secret giriniz" 
+                      value={trendyolData.api_secret}
+                      onChange={(e) => setTrendyolData({...trendyolData, api_secret: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {trendyolData.supplier_id && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncTrendyol}
+                          disabled={trendyolSyncing || trendyolOrderSyncing}
+                        >
+                          {trendyolSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncTrendyolOrders}
+                          disabled={trendyolSyncing || trendyolOrderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {trendyolOrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
                         </button>
                       </>
                     )}
