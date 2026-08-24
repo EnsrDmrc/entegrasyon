@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    
+    # Resend API (Railway gibi SMTP engelleyen yerlerde kullanmak için)
+    RESEND_API_KEY: Optional[str] = None
 
     @property
     def ASYNC_DATABASE_URI(self) -> str:

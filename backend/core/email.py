@@ -2,32 +2,58 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from core.config import settings
+import requests
+
 def _send_email_sync(to_email: str, subject: str, body_html: str):
-    if not settings.SMTP_HOST or not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print("="*50)
-        print(f"MOCK EMAIL (SMTP Ayarları Yok)")
-        print(f"Alıcı: {to_email}")
-        print(f"Konu: {subject}")
-        print(f"İçerik: \n{body_html}")
-        print("="*50)
+    # Eğer Resend API Anahtarı verilmişse HTTP üzerinden gönder (Railway için ideal)
+    if settings.RESEND_API_KEY:
+        headers = {
+            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "from": "onboarding@resend.dev",
+            "to": to_email,
+            "subject": subject,
+            "html": body_html
+        }
+        try:
+            response = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=10)
+            if response.status_code in [200, 201]:
+                print(f"Resend API ile e-posta başarıyla gönderildi: {to_email}")
+            else:
+                print(f"Resend API Hatası: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"Resend API Bağlantı Hatası: {e}")
         return
 
-    msg = MIMEMultipart()
-    msg['From'] = f"Entegrasyon Sistemi <{settings.SMTP_USER}>"
-    msg['To'] = to_email
-    msg['Subject'] = subject
+    # Eğer standart SMTP ayarları verilmişse SMTP kullan
+    if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+        msg = MIMEMultipart()
+        msg['From'] = f"Entegrasyon Sistemi <{settings.SMTP_USER}>"
+        msg['To'] = to_email
+        msg['Subject'] = subject
 
-    msg.attach(MIMEText(body_html, 'html'))
+        msg.attach(MIMEText(body_html, 'html'))
 
-    try:
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
-        server.starttls()
-        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        print(f"Email başarıyla gönderildi: {to_email}")
-    except Exception as e:
-        print(f"E-Posta gönderme hatası: {e}")
+        try:
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+            server.quit()
+            print(f"SMTP ile email başarıyla gönderildi: {to_email}")
+        except Exception as e:
+            print(f"SMTP E-Posta gönderme hatası: {e}")
+        return
+
+    # Hiçbir ayar yoksa Mock Email (Loglara bas)
+    print("="*50)
+    print(f"MOCK EMAIL (E-Posta Ayarları Yok)")
+    print(f"Alıcı: {to_email}")
+    print(f"Konu: {subject}")
+    print(f"İçerik: \n{body_html}")
+    print("="*50)
 
 def send_verification_email(to_email: str, code: str):
     subject = "Entegrasyon Kayıt Doğrulama Kodu"
