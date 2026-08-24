@@ -85,13 +85,13 @@ export default function LoginPage() {
         {successMsg && <div className="badge badge-green" style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>{successMsg}</div>}
 
         {step === 1 ? (
-          <form onSubmit={handleLogin} className="login-form">
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">E-posta Adresi</label>
+          <form onSubmit={handleLogin}>
+            <div className="input-group">
+              <label className="input-label" htmlFor="email">E-posta Adresi</label>
               <input 
                 id="email" 
                 type="email" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="admin@magaza.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -99,17 +99,17 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="form-group">
+            <div className="input-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" htmlFor="password" style={{ marginBottom: 0 }}>Şifre</label>
-                <Link href="/forgot-password" style={{ fontSize: '0.875rem', color: 'var(--accent-primary)', textDecoration: 'none' }}>
+                <label className="input-label" htmlFor="password" style={{ marginBottom: 0 }}>Şifre</label>
+                <Link href="/forgot-password" style={{ fontSize: '0.875rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
                   Şifremi Unuttum
                 </Link>
               </div>
               <input 
                 id="password" 
                 type="password" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="••••••••" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -120,26 +120,27 @@ export default function LoginPage() {
 
             <button 
               type="submit" 
-              className="login-btn"
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
               disabled={loading}
             >
               {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
             </button>
             
-            <div className="login-footer">
-              Henüz hesabınız yok mu? <Link href="/register" className="login-link">Kayıt Ol</Link>
+            <div style={{ marginTop: '1.5rem', fontSize: '0.875rem', textAlign: 'center' }}>
+              Henüz hesabınız yok mu? <Link href="/register" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Kayıt Ol</Link>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleVerify} className="login-form">
-            <div className="form-group">
-              <label className="form-label">Doğrulama Kodu</label>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '10px' }}>
+          <form onSubmit={handleVerify}>
+            <div className="input-group">
+              <label className="input-label">Doğrulama Kodu</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                 <b>{email}</b> adresine gönderilen 6 haneli doğrulama kodunu girin.
               </p>
               <input 
                 type="text" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="123456"
                 value={verificationCode}
                 onChange={e => setVerificationCode(e.target.value)}
@@ -148,11 +149,16 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              disabled={loading}
+            >
               {loading ? 'Doğrulanıyor...' : 'Doğrula ve Giriş Yap'}
             </button>
-            <div className="login-footer" style={{ marginTop: '1rem', cursor: 'pointer' }} onClick={() => {setStep(1); setSuccessMsg('');}}>
-              <span className="login-link">← Geri Dön</span>
+            <div style={{ marginTop: '1rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => {setStep(1); setSuccessMsg('');}}>
+              <span style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>← Geri Dön</span>
             </div>
           </form>
         )}

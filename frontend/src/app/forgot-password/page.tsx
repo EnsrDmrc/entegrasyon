@@ -88,13 +88,13 @@ export default function ForgotPasswordPage() {
         {successMsg && <div className="badge badge-green" style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>{successMsg}</div>}
 
         {step === 1 && (
-          <form onSubmit={handleRequestCode} className="login-form">
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">E-posta Adresi</label>
+          <form onSubmit={handleRequestCode}>
+            <div className="input-group">
+              <label className="input-label" htmlFor="email">E-posta Adresi</label>
               <input 
                 id="email" 
                 type="email" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="admin@magaza.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -102,23 +102,28 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              disabled={loading}
+            >
               {loading ? 'Kod Gönderiliyor...' : 'Sıfırlama Kodu Gönder'}
             </button>
             
-            <div className="login-footer">
-              <Link href="/login" className="login-link">← Giriş Sayfasına Dön</Link>
+            <div style={{ marginTop: '1.5rem', fontSize: '0.875rem', textAlign: 'center' }}>
+              <Link href="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600 }}>← Giriş Sayfasına Dön</Link>
             </div>
           </form>
         )}
 
         {step === 2 && (
-          <form onSubmit={handleResetPassword} className="login-form">
-            <div className="form-group">
-              <label className="form-label">Doğrulama Kodu</label>
+          <form onSubmit={handleResetPassword}>
+            <div className="input-group">
+              <label className="input-label">Doğrulama Kodu</label>
               <input 
                 type="text" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="123456"
                 value={code}
                 onChange={e => setCode(e.target.value)}
@@ -128,11 +133,11 @@ export default function ForgotPasswordPage() {
               />
             </div>
             
-            <div className="form-group">
-              <label className="form-label">Yeni Şifre</label>
+            <div className="input-group">
+              <label className="input-label">Yeni Şifre</label>
               <input 
                 type="password" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
@@ -140,12 +145,17 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              disabled={loading}
+            >
               {loading ? 'Şifre Güncelleniyor...' : 'Şifreyi Güncelle'}
             </button>
             
-            <div className="login-footer" style={{ marginTop: '1rem', cursor: 'pointer' }} onClick={() => {setStep(1); setSuccessMsg('');}}>
-              <span className="login-link">← E-posta adresini değiştir</span>
+            <div style={{ marginTop: '1rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => {setStep(1); setSuccessMsg('');}}>
+              <span style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>← E-posta adresini değiştir</span>
             </div>
           </form>
         )}

@@ -97,12 +97,12 @@ export default function RegisterPage() {
         {successMsg && <div className="badge badge-green" style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>{successMsg}</div>}
 
         {step === 1 ? (
-          <form onSubmit={handleRegister} className="login-form">
-            <div className="form-group">
-              <label className="form-label">Mağaza Adı</label>
+          <form onSubmit={handleRegister}>
+            <div className="input-group">
+              <label className="input-label">Mağaza Adı</label>
               <input 
                 type="text" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="Örn: Benim Mağazam"
                 value={formData.tenant_name}
                 onChange={e => setFormData({...formData, tenant_name: e.target.value})}
@@ -110,11 +110,11 @@ export default function RegisterPage() {
               />
             </div>
             
-            <div className="form-group">
-              <label className="form-label">E-Posta Adresi</label>
+            <div className="input-group">
+              <label className="input-label">E-Posta Adresi</label>
               <input 
                 type="email" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="ornek@sirket.com"
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
@@ -122,11 +122,11 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Şifre</label>
+            <div className="input-group">
+              <label className="input-label">Şifre</label>
               <input 
                 type="password" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={e => setFormData({...formData, password: e.target.value})}
@@ -134,24 +134,29 @@ export default function RegisterPage() {
               />
             </div>
 
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              disabled={loading}
+            >
               {loading ? 'Hesap Oluşturuluyor...' : 'Ücretsiz Hesap Oluştur'}
             </button>
             
-            <div className="login-footer">
-              Zaten bir hesabınız var mı? <Link href="/login" className="login-link">Giriş Yap</Link>
+            <div style={{ marginTop: '1.5rem', fontSize: '0.875rem', textAlign: 'center' }}>
+              Zaten bir hesabınız var mı? <Link href="/login" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Giriş Yap</Link>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleVerify} className="login-form">
-            <div className="form-group">
-              <label className="form-label">Doğrulama Kodu</label>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '10px' }}>
+          <form onSubmit={handleVerify}>
+            <div className="input-group">
+              <label className="input-label">Doğrulama Kodu</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                 <b>{registeredEmail}</b> adresine gönderilen 6 haneli kodu girin.
               </p>
               <input 
                 type="text" 
-                className="form-input" 
+                className="input-field" 
                 placeholder="123456"
                 value={verificationCode}
                 onChange={e => setVerificationCode(e.target.value)}
@@ -160,11 +165,16 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              disabled={loading}
+            >
               {loading ? 'Doğrulanıyor...' : 'Doğrula ve Giriş Yap'}
             </button>
-            <div className="login-footer" style={{ marginTop: '1rem', cursor: 'pointer' }} onClick={() => setStep(1)}>
-              <span className="login-link">← Geri Dön</span>
+            <div style={{ marginTop: '1rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => setStep(1)}>
+              <span style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>← Geri Dön</span>
             </div>
           </form>
         )}
