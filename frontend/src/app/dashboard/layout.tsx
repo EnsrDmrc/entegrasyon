@@ -13,7 +13,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    if (!token && !refreshToken) {
       router.push('/login');
     } else {
       setIsAuthorized(true);
@@ -27,6 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .catch(() => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         router.push('/login');
       });
     }
@@ -34,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     router.push('/login');
   };
 
