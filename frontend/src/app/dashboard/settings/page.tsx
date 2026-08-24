@@ -45,9 +45,6 @@ export default function SettingsPage() {
   const [trendyolOrderSyncing, setTrendyolOrderSyncing] = useState(false);
   const [trendyolMessage, setTrendyolMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
-  const [cleaningMocks, setCleaningMocks] = useState(false);
-  const [cleanMessage, setCleanMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
-
   useEffect(() => {
     // Mevcut entegrasyonları getir
     const token = localStorage.getItem('token');
@@ -496,59 +493,9 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCleanMocks = async () => {
-    if (!confirm("Tüm test amaçlı sahte siparişler veritabanından silinecek. Onaylıyor musunuz?")) return;
-    
-    setCleaningMocks(true);
-    setCleanMessage(null);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/clean-mock-orders`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || 'Temizleme başarısız');
-      }
-      setCleanMessage({ type: 'success', text: data.message });
-    } catch (error: any) {
-      setCleanMessage({ type: 'error', text: error.message });
-    } finally {
-      setCleaningMocks(false);
-      setTimeout(() => setCleanMessage(null), 5000);
-    }
-  };
-
   return (
     <>
-      <h1 style={{ fontSize: '1.875rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Ayarlar
-        <button 
-          onClick={handleCleanMocks} 
-          disabled={cleaningMocks}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#ef4444',
-            color: 'white',
-            borderRadius: '0.5rem',
-            border: 'none',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: cleaningMocks ? 'not-allowed' : 'pointer',
-            opacity: cleaningMocks ? 0.7 : 1
-          }}
-        >
-          {cleaningMocks ? 'Temizleniyor...' : 'Test Siparişlerini Temizle'}
-        </button>
-      </h1>
-
-      {cleanMessage && (
-        <div className={`badge ${cleanMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1.5rem', display: 'block', padding: '1rem', fontSize: '1rem' }}>
-          {cleanMessage.text}
-        </div>
-      )}
+      <h1 style={{ fontSize: '1.875rem', fontWeight: 700, marginBottom: '1.5rem' }}>Ayarlar</h1>
 
       <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
         {/* Kategoriler Menüsü */}
