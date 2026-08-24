@@ -494,7 +494,7 @@ class HepsiburadaAdapter(MarketplaceAdapter):
             from datetime import datetime
             return [
                 {
-                    "order_number": f"HB-ORD-{int(datetime.now().timestamp())}",
+                    "order_number": "HB-ORD-10001",
                     "customer_name": "Test Müşteri Hepsiburada",
                     "total_price": 749.99,
                     "status": "Yeni Sipariş",
@@ -657,7 +657,7 @@ class TrendyolAdapter(MarketplaceAdapter):
             from datetime import datetime
             return [
                 {
-                    "order_number": f"TY-ORD-{int(datetime.now().timestamp())}",
+                    "order_number": "TY-ORD-20001",
                     "customer_name": "Test Müşteri Trendyol",
                     "total_price": 205.50,
                     "status": "Yeni Sipariş",

@@ -801,6 +801,29 @@ async def sync_trendyol_orders(current_user: User = Depends(get_current_user), d
     }
 
 
+@router.delete("/clean-mock-orders")
+async def clean_mock_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from models.order import Order, OrderItem
+    from sqlalchemy import delete
+    
+    # HB-ORD- ve TY-ORD- ile başlayan, bu tenant'a ait siparişleri bul
+    query = select(Order).where(
+        Order.tenant_id == current_user.tenant_id,
+        Order.order_number.like('HB-ORD-%') | Order.order_number.like('TY-ORD-%')
+    )
+    result = await db.execute(query)
+    mock_orders = result.scalars().all()
+    
+    deleted_count = 0
+    for order in mock_orders:
+        await db.execute(delete(OrderItem).where(OrderItem.order_id == order.id))
+        await db.execute(delete(Order).where(Order.id == order.id))
+        deleted_count += 1
+        
+    await db.commit()
+    return {"message": f"{deleted_count} adet test siparişi başarıyla temizlendi."}
+
+
 @router.get("", response_model=List[IntegrationResponse])
 @router.get("/", response_model=List[IntegrationResponse])
 async def get_integrations(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
