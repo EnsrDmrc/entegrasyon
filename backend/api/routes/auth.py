@@ -6,7 +6,8 @@ import random
 import string
 
 from core.database import get_db
-from core.security import pwd_context, create_access_token, get_current_user
+from core.security import pwd_context, create_access_token
+from api.deps import get_current_user
 from models.user import User
 from models.tenant import Tenant
 from schemas.schemas import (
