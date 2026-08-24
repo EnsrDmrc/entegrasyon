@@ -28,6 +28,14 @@ export default function SettingsPage() {
   const [n11OrderSyncing, setN11OrderSyncing] = useState(false);
   const [n11Message, setN11Message] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
+  const [hepsiburadaData, setHepsiburadaData] = useState({
+    merchant_id: '',
+    api_key: ''
+  });
+  const [hepsiburadaSyncing, setHepsiburadaSyncing] = useState(false);
+  const [hepsiburadaOrderSyncing, setHepsiburadaOrderSyncing] = useState(false);
+  const [hepsiburadaMessage, setHepsiburadaMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   useEffect(() => {
     // Mevcut entegrasyonları getir
     const token = localStorage.getItem('token');
@@ -45,6 +53,10 @@ export default function SettingsPage() {
           const n11 = data.find(i => i.marketplace_name === 'n11');
           if (n11) {
             setN11Data({ api_key: '********', api_secret: '********' });
+          }
+          const hepsiburada = data.find(i => i.marketplace_name === 'hepsiburada');
+          if (hepsiburada) {
+            setHepsiburadaData({ merchant_id: hepsiburada.store_url || '', api_key: '********' });
           }
         }
       })
@@ -319,6 +331,80 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveHepsiburada = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setHepsiburadaMessage(null);
+
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          marketplace_name: 'hepsiburada',
+          store_url: hepsiburadaData.merchant_id, // Merchant ID'yi store_url'e kaydediyoruz
+          api_key: hepsiburadaData.api_key.includes('*') ? undefined : hepsiburadaData.api_key,
+          is_active: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Kaydedilemedi');
+      setHepsiburadaMessage({ type: 'success', text: 'Hepsiburada bilgileri kaydedildi!' });
+    } catch (err: any) {
+      setHepsiburadaMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleSyncHepsiburada = async () => {
+    setHepsiburadaSyncing(true);
+    setHepsiburadaMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Senkronizasyon başarısız');
+      }
+      setHepsiburadaMessage({ type: 'success', text: `${data.count} ürün senkronize edildi!` });
+    } catch (error: any) {
+      setHepsiburadaMessage({ type: 'error', text: error.message });
+    } finally {
+      setHepsiburadaSyncing(false);
+      setTimeout(() => setHepsiburadaMessage(null), 5000);
+    }
+  };
+
+  const handleSyncHepsiburadaOrders = async () => {
+    setHepsiburadaOrderSyncing(true);
+    setHepsiburadaMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada/orders`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Sipariş senkronizasyonu başarısız');
+      }
+      setHepsiburadaMessage({ type: 'success', text: `${data.order_count} sipariş başarıyla çekildi/güncellendi!` });
+    } catch (error: any) {
+      setHepsiburadaMessage({ type: 'error', text: error.message });
+    } finally {
+      setHepsiburadaOrderSyncing(false);
+      setTimeout(() => setHepsiburadaMessage(null), 5000);
+    }
+  };
+
   return (
     <>
       <h1 style={{ fontSize: '1.875rem', fontWeight: 700, marginBottom: '1.5rem' }}>Ayarlar</h1>
@@ -564,6 +650,72 @@ export default function SettingsPage() {
                           style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
                         >
                           {n11OrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Hepsiburada Entegrasyonu */}
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada Bağlantısı</h4>
+                  {hepsiburadaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Hepsiburada Satıcı ID (Merchant ID) ve API Şifresi (Token) bilgilerinizi girerek ürünlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {hepsiburadaMessage && (
+                  <div className={`badge ${hepsiburadaMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {hepsiburadaMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveHepsiburada}>
+                  <div className="input-group">
+                    <label className="input-label">Satıcı ID (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Hepsiburada Satıcı ID'nizi giriniz" 
+                      value={hepsiburadaData.merchant_id}
+                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, merchant_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">API Şifresi</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Hepsiburada API Şifrenizi giriniz" 
+                      value={hepsiburadaData.api_key}
+                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, api_key: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {hepsiburadaData.merchant_id && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncHepsiburada}
+                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
+                        >
+                          {hepsiburadaSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncHepsiburadaOrders}
+                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {hepsiburadaOrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
                         </button>
                       </>
                     )}

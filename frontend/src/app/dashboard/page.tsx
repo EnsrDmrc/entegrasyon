@@ -124,7 +124,7 @@ export default function DashboardOverview() {
                     <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: 500 }}>{order.order_number}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ 
-                        background: order.marketplace === 'n11' ? '#5b21b6' : '#10b981', 
+                        background: order.marketplace === 'n11' ? '#5b21b6' : order.marketplace === 'hepsiburada' ? '#f97316' : '#10b981', 
                         color: 'white', 
                         padding: '2px 8px', 
                         borderRadius: '12px', 

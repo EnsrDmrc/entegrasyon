@@ -499,6 +499,157 @@ async def sync_n11_orders(current_user: User = Depends(get_current_user), db: As
         "order_count": order_sync_count
     }
 
+@router.post("/sync/hepsiburada")
+async def sync_hepsiburada(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "hepsiburada",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Hepsiburada entegrasyonu bulunamadı (API Key veya Merchant ID eksik).")
+
+    from services.marketplace import HepsiburadaAdapter
+    # api_key -> API Şifresi, store_url -> Merchant ID olarak maplendi
+    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+    try:
+        fetched_items = await asyncio.to_thread(adapter.fetch_all_products)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not fetched_items:
+        return {"message": "Hepsiburada'da çekilecek ürün bulunamadı.", "count": 0}
+
+    sync_count = 0
+    for item in fetched_items:
+        prod_result = await db.execute(
+            select(Product).where(
+                Product.sku == item["sku"], 
+                Product.tenant_id == current_user.tenant_id
+            )
+        )
+        product = prod_result.scalars().first()
+
+        if not product:
+            product = Product(
+                tenant_id=current_user.tenant_id,
+                name=item["name"],
+                sku=item["sku"],
+                price=item["price"]
+            )
+            db.add(product)
+            await db.commit()
+            await db.refresh(product)
+
+        inv_result = await db.execute(
+            select(Inventory).where(
+                Inventory.product_id == product.id,
+                Inventory.marketplace == "hepsiburada"
+            )
+        )
+        inventory = inv_result.scalars().first()
+
+        if inventory:
+            inventory.quantity = item["quantity"]
+        else:
+            new_inv = Inventory(
+                product_id=product.id,
+                marketplace="hepsiburada",
+                quantity=item["quantity"]
+            )
+            db.add(new_inv)
+        
+        await db.commit()
+        sync_count += 1
+
+    return {"message": "Hepsiburada ürünleri başarıyla senkronize edildi", "count": sync_count}
+
+
+@router.post("/sync/hepsiburada/orders")
+async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "hepsiburada",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Hepsiburada entegrasyonu bulunamadı.")
+
+    from services.marketplace import HepsiburadaAdapter
+    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+    try:
+        fetched_orders = await asyncio.to_thread(adapter.fetch_orders)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    from models.order import Order, OrderItem
+    from dateutil import parser
+    
+    order_sync_count = 0
+    for ord_data in fetched_orders:
+        ord_result = await db.execute(
+            select(Order).where(
+                Order.order_number == ord_data["order_number"],
+                Order.tenant_id == current_user.tenant_id
+            )
+        )
+        existing_order = ord_result.scalars().first()
+        
+        parsed_date = None
+        if ord_data["order_date"]:
+            try:
+                parsed_date = parser.parse(ord_data["order_date"], dayfirst=True)
+            except:
+                pass
+
+        if not existing_order:
+            new_order = Order(
+                tenant_id=current_user.tenant_id,
+                marketplace="hepsiburada",
+                order_number=ord_data["order_number"],
+                customer_name=ord_data["customer_name"],
+                total_price=ord_data["total_price"],
+                status=ord_data["status"],
+                order_date=parsed_date
+            )
+            db.add(new_order)
+            await db.commit()
+            await db.refresh(new_order)
+            
+            for item in ord_data["items"]:
+                new_item = OrderItem(
+                    order_id=new_order.id,
+                    product_sku=item["product_sku"],
+                    product_name=item["product_name"],
+                    quantity=item["quantity"],
+                    price=item["price"]
+                )
+                db.add(new_item)
+            await db.commit()
+            order_sync_count += 1
+        else:
+            if existing_order.status != ord_data["status"]:
+                existing_order.status = ord_data["status"]
+                db.add(existing_order)
+                await db.commit()
+                order_sync_count += 1
+
+    return {
+        "message": "Hepsiburada Siparişleri başarıyla çekildi", 
+        "order_count": order_sync_count
+    }
+
+
 @router.get("", response_model=List[IntegrationResponse])
 @router.get("/", response_model=List[IntegrationResponse])
 async def get_integrations(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

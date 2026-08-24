@@ -91,6 +91,8 @@ function OrdersContent() {
                       <span className="badge" style={{ backgroundColor: '#95bf47', color: 'white' }}>Shopify</span>
                     ) : order.marketplace === 'n11' ? (
                       <span className="badge" style={{ backgroundColor: '#5c3d99', color: 'white' }}>n11</span>
+                    ) : order.marketplace === 'hepsiburada' ? (
+                      <span className="badge" style={{ backgroundColor: '#f97316', color: 'white' }}>Hepsiburada</span>
                     ) : (
                       <span className="badge badge-blue">{order.marketplace}</span>
                     )}

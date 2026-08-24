@@ -430,3 +430,143 @@ class N11Adapter(MarketplaceAdapter):
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Test Product n11", "price": 100.0}
+
+import base64
+
+class HepsiburadaAdapter(MarketplaceAdapter):
+    def __init__(self, merchant_id: str, api_key: str):
+        self.merchant_id = merchant_id.strip()
+        self.api_key = api_key.strip()
+        
+        # Hepsiburada API'leri genellikle Basic Auth (Bazen Bearer) kullanır.
+        # Biz burada genel standart olan Basic veya Bearer modeline göre header ayarlıyoruz.
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Basic {base64.b64encode(f'{self.merchant_id}:{self.api_key}'.encode()).decode()}",
+            "User-Agent": "EntegrasyonApp/1.0"
+        }
+        
+        self.base_url_listing = "https://listing-external.hepsiburada.com/listings/merchantid"
+        self.base_url_order = "https://oms-external.hepsiburada.com/packages/merchantid"
+        
+    def fetch_all_products(self) -> list:
+        fetched_variants = []
+        try:
+            with httpx.Client() as client:
+                # Hepsiburada ürün çekme API'si (Örnek Endpoint)
+                url = f"{self.base_url_listing}/{self.merchant_id}?offset=0&limit=100"
+                response = client.get(url, headers=self.headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    listings = data.get("listings", [])
+                    for item in listings:
+                        sku = item.get("merchantSku")
+                        if not sku:
+                            continue
+                            
+                        fetched_variants.append({
+                            "sku": sku,
+                            "name": item.get("hbSkuTitle", f"Hepsiburada Ürünü - {sku}"),
+                            "price": float(item.get("price", 0.0)),
+                            "quantity": int(item.get("availableInventory", 0)),
+                            "marketplace": "hepsiburada"
+                        })
+                elif response.status_code in (401, 403):
+                    print("[Hepsiburada] Yetkilendirme hatası (API Key veya Merchant ID geçersiz)")
+                else:
+                    print(f"[Hepsiburada] API Hatası: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"[Hepsiburada Sync Hatası]: {e}")
+            
+        return fetched_variants
+
+    def fetch_orders(self) -> list:
+        fetched_orders = []
+        try:
+            with httpx.Client() as client:
+                # Hepsiburada Sipariş Çekme API'si (Örnek Endpoint)
+                url = f"{self.base_url_order}/{self.merchant_id}?status=Unpacked,Packed,Shipped"
+                response = client.get(url, headers=self.headers)
+                
+                if response.status_code == 200:
+                    orders_data = response.json()
+                    for pkg in orders_data:
+                        order_number = pkg.get("orderNumber") or pkg.get("packageNumber")
+                        if not order_number: continue
+                        
+                        customer = pkg.get("deliveryAddress", {})
+                        customer_name = customer.get("name", "Hepsiburada Müşterisi")
+                        
+                        items = []
+                        total_price = 0.0
+                        
+                        for line in pkg.get("lineItems", []):
+                            price = float(line.get("price", 0.0))
+                            qty = int(line.get("quantity", 1))
+                            total_price += price * qty
+                            
+                            items.append({
+                                "product_sku": line.get("merchantSku", "HB-UNKNOWN"),
+                                "product_name": line.get("productName", ""),
+                                "quantity": qty,
+                                "price": price
+                            })
+                            
+                        # Statüyü eşleştir
+                        raw_status = pkg.get("status", "Unpacked")
+                        status_map = {
+                            "Unpacked": "Yeni Sipariş",
+                            "Packed": "Onaylandı",
+                            "Shipped": "Kargolandı",
+                            "Delivered": "Teslim Edildi",
+                            "Cancelled": "İptal Edildi"
+                        }
+                        
+                        fetched_orders.append({
+                            "order_number": str(order_number),
+                            "customer_name": customer_name,
+                            "total_price": total_price,
+                            "status": status_map.get(raw_status, raw_status),
+                            "order_date": pkg.get("orderDate"),
+                            "items": items
+                        })
+                elif response.status_code in (401, 403):
+                    print("[Hepsiburada Order] Yetkilendirme hatası")
+        except Exception as e:
+            print(f"[Hepsiburada Order Sync Hatası]: {e}")
+            
+        return fetched_orders
+
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        success = True
+        try:
+            with httpx.Client() as client:
+                url = f"{self.base_url_listing}/{self.merchant_id}/inventory-and-price"
+                
+                payload = {
+                    "listings": [
+                        {
+                            "merchantSku": sku
+                        }
+                    ]
+                }
+                
+                if new_price is not None:
+                    payload["listings"][0]["price"] = float(new_price)
+                if new_stock is not None:
+                    payload["listings"][0]["availableInventory"] = int(new_stock)
+                    
+                response = client.post(url, headers=self.headers, json=payload)
+                
+                if response.status_code not in (200, 201, 202):
+                    print(f"[Hepsiburada] Stok/Fiyat güncellenemedi ({sku}): {response.text}")
+                    success = False
+        except Exception as e:
+            print(f"[Hepsiburada] API Hatası: {e}")
+            success = False
+            
+        return success
+
+    def get_product_details(self, sku: str) -> dict:
+        return {"sku": sku, "name": "Hepsiburada Ürünü", "price": 0.0}
