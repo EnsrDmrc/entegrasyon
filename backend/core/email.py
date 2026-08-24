@@ -2,11 +2,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from core.config import settings
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-executor = ThreadPoolExecutor(max_workers=2)
-
 def _send_email_sync(to_email: str, subject: str, body_html: str):
     if not settings.SMTP_HOST or not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         print("="*50)
@@ -25,7 +20,7 @@ def _send_email_sync(to_email: str, subject: str, body_html: str):
     msg.attach(MIMEText(body_html, 'html'))
 
     try:
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
+        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.send_message(msg)
@@ -34,7 +29,7 @@ def _send_email_sync(to_email: str, subject: str, body_html: str):
     except Exception as e:
         print(f"E-Posta gönderme hatası: {e}")
 
-async def send_verification_email(to_email: str, code: str):
+def send_verification_email(to_email: str, code: str):
     subject = "Entegrasyon Kayıt Doğrulama Kodu"
     body = f"""
     <html>
@@ -48,10 +43,9 @@ async def send_verification_email(to_email: str, code: str):
     </body>
     </html>
     """
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, _send_email_sync, to_email, subject, body)
+    _send_email_sync(to_email, subject, body)
 
-async def send_password_reset_email(to_email: str, code: str):
+def send_password_reset_email(to_email: str, code: str):
     subject = "Şifre Sıfırlama Kodu"
     body = f"""
     <html>
@@ -66,10 +60,9 @@ async def send_password_reset_email(to_email: str, code: str):
     </body>
     </html>
     """
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, _send_email_sync, to_email, subject, body)
+    _send_email_sync(to_email, subject, body)
 
-async def send_password_change_email(to_email: str, code: str):
+def send_password_change_email(to_email: str, code: str):
     subject = "Şifre Değiştirme Doğrulama Kodu"
     body = f"""
     <html>
@@ -83,5 +76,4 @@ async def send_password_change_email(to_email: str, code: str):
     </body>
     </html>
     """
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, _send_email_sync, to_email, subject, body)
+    _send_email_sync(to_email, subject, body)

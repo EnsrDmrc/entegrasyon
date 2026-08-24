@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime, timedelta, timezone
@@ -22,7 +22,7 @@ def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
 @router.post("/register")
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(user_data: UserRegister, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == user_data.email))
     existing_user = result.scalars().first()
     
@@ -35,7 +35,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
             existing_user.otp_code = otp
             existing_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
             await db.commit()
-            await send_verification_email(existing_user.email, otp)
+            background_tasks.add_task(send_verification_email, existing_user.email, otp)
             return {"status": "verification_required", "email": existing_user.email, "message": "Doğrulama kodu tekrar gönderildi."}
 
     # Yeni mağaza oluştur
@@ -60,7 +60,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     # E-posta gönder (arka planda çalışacak)
-    await send_verification_email(new_user.email, otp)
+    background_tasks.add_task(send_verification_email, new_user.email, otp)
     
     # Token DÖNMÜYORUZ, doğrulama istiyoruz
     return {"status": "verification_required", "email": new_user.email}
@@ -99,7 +99,7 @@ async def verify_email(data: EmailVerify, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login")
-async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(user_data: UserLogin, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == user_data.email))
     user = result.scalars().first()
 
@@ -116,7 +116,7 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
         user.otp_code = otp
         user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
         await db.commit()
-        await send_verification_email(user.email, otp)
+        background_tasks.add_task(send_verification_email, user.email, otp)
         
         raise HTTPException(
             status_code=403, 
@@ -128,7 +128,7 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db)):
+async def forgot_password(data: ForgotPassword, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalars().first()
     
@@ -137,7 +137,7 @@ async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_d
         user.otp_code = otp
         user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
         await db.commit()
-        await send_password_reset_email(user.email, otp)
+        background_tasks.add_task(send_password_reset_email, user.email, otp)
         
     return {"message": "Eğer hesabınız varsa şifre sıfırlama kodu gönderildi."}
 
@@ -167,12 +167,12 @@ async def reset_password(data: ResetPassword, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/request-password-change")
-async def request_password_change(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def request_password_change(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     otp = generate_otp()
     current_user.otp_code = otp
     current_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.commit()
-    await send_password_change_email(current_user.email, otp)
+    background_tasks.add_task(send_password_change_email, current_user.email, otp)
     
     return {"message": "Şifre değiştirme kodu e-posta adresinize gönderildi."}
 
