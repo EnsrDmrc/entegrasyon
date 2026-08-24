@@ -20,9 +20,12 @@ async def process_tenant_orders(session, tenant_id: int):
     
     n11_int = next((i for i in integrations if i.marketplace_name == 'n11'), None)
     shopify_int = next((i for i in integrations if i.marketplace_name == 'shopify'), None)
+    hepsiburada_int = next((i for i in integrations if i.marketplace_name == 'hepsiburada'), None)
     
     fetched_orders = []
     n11_adapter = None
+    shopify_adapter = None
+    hepsiburada_adapter = None
     
     try:
         # Fetch N11 orders
@@ -35,7 +38,6 @@ async def process_tenant_orders(session, tenant_id: int):
     except Exception as e:
         print(f"[Patrol] N11 Order fetch failed for tenant {tenant_id}: {e}")
 
-    shopify_adapter = None
     try:
         # Fetch Shopify orders
         if shopify_int and shopify_int.api_key and shopify_int.store_url:
@@ -46,6 +48,19 @@ async def process_tenant_orders(session, tenant_id: int):
             fetched_orders.extend(shop_orders)
     except Exception as e:
         print(f"[Patrol] Shopify Order fetch failed for tenant {tenant_id}: {e}")
+
+    try:
+        # Fetch Hepsiburada orders
+        from services.marketplace import HepsiburadaAdapter
+        if hepsiburada_int and hepsiburada_int.api_key and hepsiburada_int.store_url:
+            # api_key -> API Şifresi, store_url -> Merchant ID
+            hepsiburada_adapter = HepsiburadaAdapter(merchant_id=str(hepsiburada_int.store_url), api_key=str(hepsiburada_int.api_key))
+            hb_orders = await asyncio.to_thread(hepsiburada_adapter.fetch_orders)
+            for o in hb_orders:
+                o["marketplace"] = "hepsiburada"
+            fetched_orders.extend(hb_orders)
+    except Exception as e:
+        print(f"[Patrol] Hepsiburada Order fetch failed for tenant {tenant_id}: {e}")
     
     for ord_data in fetched_orders:
         order_number = ord_data.get("order_number")
@@ -136,8 +151,12 @@ async def process_tenant_orders(session, tenant_id: int):
                 await asyncio.to_thread(shopify_adapter.update_product, sku, new_stock=new_stock)
                 
             # N11'e it
-            if 'n11_adapter' in locals() and n11_adapter:
+            if n11_adapter:
                 await asyncio.to_thread(n11_adapter.update_product, sku, new_stock=new_stock)
+                
+            # Hepsiburada'ya it
+            if hepsiburada_adapter:
+                await asyncio.to_thread(hepsiburada_adapter.update_product, sku, new_stock=new_stock)
 
 async def order_patrol_loop():
     print("[Patrol] Sipariş Devriyesi başlatıldı! Her 1 dakikada bir çalışacak.")
