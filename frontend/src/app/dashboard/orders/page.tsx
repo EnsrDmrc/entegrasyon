@@ -25,6 +25,17 @@ function OrdersContent() {
     return status;
   };
 
+  const formatOrderDate = (dateString: any) => {
+    if (!dateString) return new Date().toLocaleString('tr-TR');
+    let str = String(dateString);
+    // Veritabanı ve API tarihleri genellikle UTC işaretiyle ('Z' veya '+00:00') gelir.
+    // Ancak pazaryerinden (örn: N11) saat Türkiye saati (lokal) olarak çekildiği için,
+    // UTC işaretini kaldırıp tarayıcının yerel saatmiş gibi anlamasını sağlıyoruz.
+    if (str.endsWith('Z')) str = str.slice(0, -1);
+    if (str.endsWith('+00:00')) str = str.slice(0, -6);
+    return new Date(str).toLocaleString('tr-TR');
+  };
+
   useEffect(() => {
     const fetchOrders = async () => {
       setLoading(true);
@@ -112,7 +123,7 @@ function OrdersContent() {
                       <span style={{ color: 'var(--text-secondary)' }}>Belirtilmemiş</span>
                     )}
                   </td>
-                  <td>{new Date(order.order_date || order.created_at || new Date()).toLocaleString('tr-TR')}</td>
+                  <td>{formatOrderDate(order.order_date || order.created_at)}</td>
                   <td>{order.total_price} ₺</td>
                   <td>
                     <span className={`badge ${getBadgeClass(order.status)}`}>
