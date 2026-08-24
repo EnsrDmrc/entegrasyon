@@ -45,7 +45,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          Demircisoft
+          <Link href="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>
+            Vendora
+          </Link>
         </div>
         <nav className="sidebar-nav">
           <Link 

@@ -6,7 +6,7 @@ export default function Home() {
     <div className="landing-body">
       {/* Navigation */}
       <nav className="landing-nav animate-fade-in">
-        <div className="landing-logo">Demircisoft</div>
+        <div className="landing-logo">Vendora</div>
         <div>
           <Link href="/login" className="landing-btn-login">
             Giriş Yap / Panele Git
@@ -27,7 +27,7 @@ export default function Home() {
         <div className="landing-mockup-wrapper animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <Image 
             src="/dashboard-mockup-light.png" 
-            alt="Demircisoft Dashboard" 
+            alt="Vendora Dashboard" 
             width={1000} 
             height={562}
             className="landing-mockup-img"
@@ -77,7 +77,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="landing-features">
-        <h2 className="landing-section-title">Neden Demircisoft?</h2>
+        <h2 className="landing-section-title">Neden Vendora?</h2>
         <div className="landing-grid">
           <div className="landing-card">
             <div className="landing-card-icon">🚀</div>
@@ -105,7 +105,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="landing-footer">
-        <p>© {new Date().getFullYear()} Demircisoft. Tüm hakları saklıdır.</p>
+        <p>© {new Date().getFullYear()} Vendora. Tüm hakları saklıdır.</p>
       </footer>
     </div>
   );
