@@ -6,12 +6,12 @@ import random
 import string
 
 from core.database import get_db
-from core.security import pwd_context, create_access_token
+from core.security import pwd_context, create_access_token, create_refresh_token
 from api.deps import get_current_user
 from models.user import User
 from models.tenant import Tenant
 from schemas.schemas import (
-    UserRegister, UserLogin, Token, 
+    UserRegister, UserLogin, Token, TokenRefresh,
     EmailVerify, ForgotPassword, ResetPassword, PasswordChangeWithOTP
 )
 from core.email import send_verification_email, send_password_reset_email, send_password_change_email
@@ -95,7 +95,8 @@ async def verify_email(data: EmailVerify, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     access_token = create_access_token(subject=str(user.id))
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(subject=str(user.id))
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
 @router.post("/login")
@@ -124,7 +125,32 @@ async def login(user_data: UserLogin, background_tasks: BackgroundTasks, db: Asy
         )
 
     access_token = create_access_token(subject=str(user.id))
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(subject=str(user.id))
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+from jose import jwt, JWTError
+from core.config import settings
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token_endpoint(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
+    try:
+        payload = jwt.decode(data.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if user_id is None or token_type != "refresh":
+            raise HTTPException(status_code=401, detail="Geçersiz refresh token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Geçersiz refresh token")
+        
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı")
+        
+    access_token = create_access_token(subject=str(user.id))
+    new_refresh_token = create_refresh_token(subject=str(user.id))
+    
+    return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 
 
 @router.post("/forgot-password")

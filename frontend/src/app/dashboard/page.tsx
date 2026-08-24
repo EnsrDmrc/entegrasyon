@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/utils/api';
 
 export default function DashboardOverview() {
   const [productCount, setProductCount] = useState(0);
@@ -16,9 +17,7 @@ export default function DashboardOverview() {
     const token = localStorage.getItem('token');
     if (token) {
       // Ürünleri Çek
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -39,9 +38,7 @@ export default function DashboardOverview() {
       .catch(console.error);
 
       // Siparişleri Çek
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

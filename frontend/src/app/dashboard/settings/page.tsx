@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/utils/api';
 
 export default function SettingsPage() {
   const [formData, setFormData] = useState({
@@ -49,7 +50,7 @@ export default function SettingsPage() {
     // Mevcut entegrasyonları getir
     const token = localStorage.getItem('token');
     if (token) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+      apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -82,7 +83,7 @@ export default function SettingsPage() {
     setShopifyMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -107,7 +108,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/request-password-change`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/request-password-change`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +142,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/change-password`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +185,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ export default function SettingsPage() {
     setShopifyMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify/orders`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/shopify/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -252,7 +253,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -278,7 +279,7 @@ export default function SettingsPage() {
     setN11Message(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -303,7 +304,7 @@ export default function SettingsPage() {
     setN11Message(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -326,7 +327,7 @@ export default function SettingsPage() {
     setN11Message(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11/orders`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/n11/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -351,7 +352,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +378,7 @@ export default function SettingsPage() {
     setHepsiburadaMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -400,7 +401,7 @@ export default function SettingsPage() {
     setHepsiburadaMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada/orders`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/hepsiburada/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -425,7 +426,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -452,7 +453,7 @@ export default function SettingsPage() {
     setTrendyolMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -475,7 +476,7 @@ export default function SettingsPage() {
     setTrendyolMessage(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol/orders`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/trendyol/orders`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

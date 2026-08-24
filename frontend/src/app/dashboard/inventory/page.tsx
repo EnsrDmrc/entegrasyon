@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { apiFetch } from '@/utils/api';
 
 function InventoryContent() {
   const [products, setProducts] = useState<any[]>([]);
@@ -24,11 +25,7 @@ function InventoryContent() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`);
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -80,11 +77,9 @@ function InventoryContent() {
     
     setIsUpdating(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${editingProduct.id}`, {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: { 
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 

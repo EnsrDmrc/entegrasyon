@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { apiFetch } from '@/utils/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,9 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else {
       setIsAuthorized(true);
       // Backend'den profil bilgilerini al
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me`)
       .then(res => res.json())
       .then(data => {
         if (data.tenant && data.tenant.name) {

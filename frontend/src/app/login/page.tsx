@@ -40,6 +40,9 @@ export default function LoginPage() {
       }
 
       localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
@@ -67,6 +70,9 @@ export default function LoginPage() {
 
       const data = await response.json();
       localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { apiFetch } from '@/utils/api';
 
 function OrdersContent() {
   const searchParams = useSearchParams();
@@ -40,12 +41,7 @@ function OrdersContent() {
     const fetchOrders = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/orders`);
         
         if (response.ok) {
           const data = await response.json();

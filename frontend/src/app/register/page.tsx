@@ -51,6 +51,9 @@ export default function RegisterPage() {
       } else {
         // Eski sisteme göre anında token dönerse (fallback)
         localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -79,6 +82,9 @@ export default function RegisterPage() {
 
       const data = await response.json();
       localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);
