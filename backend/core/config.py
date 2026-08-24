@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     
     # Resend API (Railway gibi SMTP engelleyen yerlerde kullanmak için)
     RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
 
     @property
     def ASYNC_DATABASE_URI(self) -> str:

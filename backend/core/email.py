@@ -12,7 +12,7 @@ def _send_email_sync(to_email: str, subject: str, body_html: str):
             "Content-Type": "application/json"
         }
         payload = {
-            "from": "onboarding@resend.dev",
+            "from": settings.RESEND_FROM_EMAIL,
             "to": to_email,
             "subject": subject,
             "html": body_html
