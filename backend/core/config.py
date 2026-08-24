@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 gün
 
+    # Email
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+
     @property
     def ASYNC_DATABASE_URI(self) -> str:
         db_url = self.DATABASE_URL or self.DATABASE_URI

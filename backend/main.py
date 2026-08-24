@@ -8,6 +8,20 @@ import asyncio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from services.patrol import order_patrol_loop
+    from core.database import AsyncSessionLocal
+    from sqlalchemy import text
+    
+    # Otomatik veritabanı göçü (Sütun eklemeleri)
+    async with AsyncSessionLocal() as session:
+        try:
+            await session.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT TRUE;"))
+            await session.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR;"))
+            await session.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at TIMESTAMP WITH TIME ZONE;"))
+            await session.execute(text("UPDATE users SET is_verified = TRUE WHERE is_verified IS NULL;"))
+            await session.commit()
+        except Exception as e:
+            print("Migration (ALTER TABLE) skipped or already applied:", e)
+
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
     task = asyncio.create_task(order_patrol_loop())
     yield

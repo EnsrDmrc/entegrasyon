@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 
 export default function SettingsPage() {
   const [formData, setFormData] = useState({
-    old_password: '',
     new_password: '',
-    confirm_password: ''
+    confirm_password: '',
+    code: ''
   });
+  const [passwordStep, setPasswordStep] = useState(1);
   
   const [shopifyData, setShopifyData] = useState({
     store_url: '',
@@ -74,6 +75,34 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRequestPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/request-password-change`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Kod gönderilemedi');
+      }
+
+      setMessage({ type: 'success', text: 'E-posta adresinize doğrulama kodu gönderildi.' });
+      setPasswordStep(2);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -87,14 +116,14 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/password`, {
-        method: 'PUT',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/change-password`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          old_password: formData.old_password,
+          code: formData.code,
           new_password: formData.new_password
         })
       });
@@ -105,7 +134,8 @@ export default function SettingsPage() {
       }
 
       setMessage({ type: 'success', text: 'Şifreniz başarıyla değiştirildi!' });
-      setFormData({ old_password: '', new_password: '', confirm_password: '' });
+      setFormData({ new_password: '', confirm_password: '', code: '' });
+      setPasswordStep(1);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -330,49 +360,76 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleChangePassword}>
-                <div className="input-group">
-                  <label className="input-label">Mevcut Şifre</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
-                    value={formData.old_password}
-                    onChange={(e) => setFormData({...formData, old_password: e.target.value})}
-                    required
-                  />
-                </div>
-                
-                <div className="input-group">
-                  <label className="input-label">Yeni Şifre</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
-                    value={formData.new_password}
-                    onChange={(e) => setFormData({...formData, new_password: e.target.value})}
-                    required
-                  />
-                </div>
+              {passwordStep === 1 ? (
+                <form onSubmit={handleRequestPasswordChange}>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                    Şifrenizi değiştirmek için kayıtlı e-posta adresinize bir doğrulama kodu gönderilecektir.
+                  </p>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    disabled={loading}
+                  >
+                    {loading ? 'İşleniyor...' : 'Şifre Değiştirme Kodu Gönder'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleChangePassword}>
+                  <div className="input-group">
+                    <label className="input-label">Doğrulama Kodu</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="123456"
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      maxLength={6}
+                      style={{ letterSpacing: '2px' }}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="input-group">
+                    <label className="input-label">Yeni Şifre</label>
+                    <input 
+                      type="password" 
+                      className="input-field" 
+                      value={formData.new_password}
+                      onChange={(e) => setFormData({...formData, new_password: e.target.value})}
+                      required
+                    />
+                  </div>
 
-                <div className="input-group">
-                  <label className="input-label">Yeni Şifre (Tekrar)</label>
-                  <input 
-                    type="password" 
-                    className="input-field" 
-                    value={formData.confirm_password}
-                    onChange={(e) => setFormData({...formData, confirm_password: e.target.value})}
-                    required
-                  />
-                </div>
+                  <div className="input-group">
+                    <label className="input-label">Yeni Şifre (Tekrar)</label>
+                    <input 
+                      type="password" 
+                      className="input-field" 
+                      value={formData.confirm_password}
+                      onChange={(e) => setFormData({...formData, confirm_password: e.target.value})}
+                      required
+                    />
+                  </div>
 
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={loading}
-                  style={{ marginTop: '0.5rem' }}
-                >
-                  {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
-                </button>
-              </form>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      disabled={loading}
+                    >
+                      {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={() => setPasswordStep(1)}
+                      disabled={loading}
+                    >
+                      İptal
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 

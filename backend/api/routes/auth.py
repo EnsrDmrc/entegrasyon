@@ -1,44 +1,103 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from datetime import datetime, timedelta, timezone
+import random
+import string
 
 from core.database import get_db
-from core.security import pwd_context, create_access_token
+from core.security import pwd_context, create_access_token, get_current_user
 from models.user import User
 from models.tenant import Tenant
-from schemas import UserRegister, UserLogin, Token
+from schemas.schemas import (
+    UserRegister, UserLogin, Token, 
+    EmailVerify, ForgotPassword, ResetPassword, PasswordChangeWithOTP
+)
+from core.email import send_verification_email, send_password_reset_email, send_password_change_email
 
 router = APIRouter()
 
-@router.post("/register", response_model=Token)
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
-    # 1. E-posta kontrolü
-    result = await db.execute(select(User).where(User.email == user_data.email))
-    if result.scalars().first():
-        raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kullanılıyor.")
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=6))
 
-    # 2. Önce Tenant (Mağaza) oluştur
+@router.post("/register")
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == user_data.email))
+    existing_user = result.scalars().first()
+    
+    if existing_user:
+        if existing_user.is_verified:
+            raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kullanılıyor.")
+        else:
+            # Kullanıcı var ama doğrulanmamışsa kodu tekrar gönder
+            otp = generate_otp()
+            existing_user.otp_code = otp
+            existing_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+            await db.commit()
+            await send_verification_email(existing_user.email, otp)
+            return {"status": "verification_required", "email": existing_user.email, "message": "Doğrulama kodu tekrar gönderildi."}
+
+    # Yeni mağaza oluştur
     new_tenant = Tenant(name=user_data.tenant_name)
     db.add(new_tenant)
     await db.commit()
     await db.refresh(new_tenant)
 
-    # 3. Sonra User oluştur ve Tenant'a bağla
+    # Yeni kullanıcı oluştur
     hashed_password = pwd_context.hash(user_data.password)
+    otp = generate_otp()
+    
     new_user = User(
         email=user_data.email,
         hashed_password=hashed_password,
-        tenant_id=new_tenant.id
+        tenant_id=new_tenant.id,
+        is_verified=False,
+        otp_code=otp,
+        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)
     )
     db.add(new_user)
     await db.commit()
-    await db.refresh(new_user)
+    
+    # E-posta gönder (arka planda çalışacak)
+    await send_verification_email(new_user.email, otp)
+    
+    # Token DÖNMÜYORUZ, doğrulama istiyoruz
+    return {"status": "verification_required", "email": new_user.email}
 
-    # 4. Token üret ve dön
-    access_token = create_access_token(subject=str(new_user.id))
+
+@router.post("/verify-email", response_model=Token)
+async def verify_email(data: EmailVerify, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Kullanıcı zaten doğrulanmış.")
+        
+    if not user.otp_code or user.otp_code != data.code:
+        raise HTTPException(status_code=400, detail="Geçersiz doğrulama kodu.")
+        
+    # UTC naive vs aware check
+    now = datetime.now(timezone.utc)
+    if user.otp_expires_at.tzinfo is None:
+        now = datetime.utcnow() # fallback to naive
+        
+    if user.otp_expires_at < now:
+        raise HTTPException(status_code=400, detail="Doğrulama kodunun süresi dolmuş.")
+        
+    # Doğrulama başarılı
+    user.is_verified = True
+    user.otp_code = None
+    user.otp_expires_at = None
+    await db.commit()
+    
+    access_token = create_access_token(subject=str(user.id))
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.post("/login", response_model=Token)
+
+@router.post("/login")
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == user_data.email))
     user = result.scalars().first()
@@ -49,6 +108,89 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
             detail="E-posta veya şifre hatalı",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    if not user.is_verified:
+        # Doğrulanmamışsa kodu tekrar gönder ve özel hata dön
+        otp = generate_otp()
+        user.otp_code = otp
+        user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        await db.commit()
+        await send_verification_email(user.email, otp)
+        
+        raise HTTPException(
+            status_code=403, 
+            detail="Lütfen e-posta adresinizi doğrulayın. Yeni bir kod gönderildi."
+        )
 
     access_token = create_access_token(subject=str(user.id))
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalars().first()
+    
+    if user:
+        otp = generate_otp()
+        user.otp_code = otp
+        user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        await db.commit()
+        await send_password_reset_email(user.email, otp)
+        
+    return {"message": "Eğer hesabınız varsa şifre sıfırlama kodu gönderildi."}
+
+
+@router.post("/reset-password")
+async def reset_password(data: ResetPassword, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalars().first()
+    
+    if not user or not user.otp_code or user.otp_code != data.code:
+        raise HTTPException(status_code=400, detail="Geçersiz e-posta veya kod.")
+        
+    now = datetime.now(timezone.utc)
+    if user.otp_expires_at.tzinfo is None:
+        now = datetime.utcnow()
+        
+    if user.otp_expires_at < now:
+        raise HTTPException(status_code=400, detail="Kodun süresi dolmuş.")
+        
+    # Şifreyi güncelle
+    user.hashed_password = pwd_context.hash(data.new_password)
+    user.otp_code = None
+    user.otp_expires_at = None
+    await db.commit()
+    
+    return {"message": "Şifreniz başarıyla sıfırlandı."}
+
+
+@router.post("/request-password-change")
+async def request_password_change(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    otp = generate_otp()
+    current_user.otp_code = otp
+    current_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.commit()
+    await send_password_change_email(current_user.email, otp)
+    
+    return {"message": "Şifre değiştirme kodu e-posta adresinize gönderildi."}
+
+
+@router.post("/change-password")
+async def change_password(data: PasswordChangeWithOTP, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if not current_user.otp_code or current_user.otp_code != data.code:
+        raise HTTPException(status_code=400, detail="Geçersiz doğrulama kodu.")
+        
+    now = datetime.now(timezone.utc)
+    if current_user.otp_expires_at.tzinfo is None:
+        now = datetime.utcnow()
+        
+    if current_user.otp_expires_at < now:
+        raise HTTPException(status_code=400, detail="Kodun süresi dolmuş.")
+        
+    current_user.hashed_password = pwd_context.hash(data.new_password)
+    current_user.otp_code = None
+    current_user.otp_expires_at = None
+    await db.commit()
+    
+    return {"message": "Şifreniz başarıyla güncellendi."}

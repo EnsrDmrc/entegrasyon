@@ -26,21 +26,6 @@ async def get_my_profile(current_user: User = Depends(get_current_user), db: Asy
         "tenant": tenant
     }
 
-@router.put("/me/password")
-async def change_password(
-    data: PasswordChange, 
-    current_user: User = Depends(get_current_user), 
-    db: AsyncSession = Depends(get_db)
-):
-    if not pwd_context.verify(data.old_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Mevcut şifre hatalı")
-        
-    current_user.hashed_password = pwd_context.hash(data.new_password)
-    db.add(current_user)
-    await db.commit()
-    
-    return {"message": "Şifreniz başarıyla değiştirildi"}
-
 @router.get("/me/products", response_model=List[ProductResponse])
 async def get_my_products(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # Sadece giriş yapan kullanıcının tenant'ına ait ürünleri getir (Multi-tenant izolasyonu)

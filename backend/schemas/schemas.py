@@ -19,6 +19,22 @@ class PasswordChange(BaseModel):
     old_password: str
     new_password: str
 
+class EmailVerify(BaseModel):
+    email: EmailStr
+    code: str
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
+
+class ResetPassword(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
+class PasswordChangeWithOTP(BaseModel):
+    code: str
+    new_password: str
+
 # --- TENANT ---
 class TenantResponse(BaseModel):
     id: int

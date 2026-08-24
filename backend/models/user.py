@@ -11,6 +11,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    otp_code = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime(timezone=True), nullable=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
