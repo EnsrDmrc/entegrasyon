@@ -713,7 +713,8 @@ export default function SettingsPage() {
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Pazaryeri Entegrasyonları</h3>
               
               {selectedMarketplace === null ? (
-                <div style={ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                  
                   <div className="card" onClick={() => setSelectedMarketplace('amazon')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Amazon</h4>
@@ -724,20 +725,12 @@ export default function SettingsPage() {
 
                   <div className="card" onClick={() => setSelectedMarketplace('n11')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                       
-                  <div className="card" onClick={() => setSelectedMarketplace('amazon')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Amazon</h4>
-                       {amazonData.seller_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
-                     </div>
-                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Amazon Seller ID ve Refresh Token girerek entegre olun.</p>
-                  </div>
-
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>N11</h4>
                        {n11Data.api_key ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
                      </div>
                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>N11 API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
                   </div>
+
                   <div className="card" onClick={() => setSelectedMarketplace('trendyol')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Trendyol</h4>
@@ -745,6 +738,7 @@ export default function SettingsPage() {
                      </div>
                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Trendyol API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
                   </div>
+
                   <div className="card" onClick={() => setSelectedMarketplace('hepsiburada')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada</h4>
@@ -752,6 +746,7 @@ export default function SettingsPage() {
                      </div>
                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Hepsiburada API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
                   </div>
+
                 </div>
               ) : (
                 <div>
