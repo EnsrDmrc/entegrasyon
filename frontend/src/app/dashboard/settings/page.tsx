@@ -805,7 +805,7 @@ export default function SettingsPage() {
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Pazaryeri Entegrasyonları</h3>
               
               {selectedMarketplace === null ? (
-                <div style={ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
 
                   <div className="card" onClick={() => setSelectedMarketplace('pazarama')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
