@@ -649,7 +649,6 @@ export default function SettingsPage() {
                 <div>
                   <button onClick={() => setSelectedMarketplace(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Geri Dön</button>
                   {selectedMarketplace === 'n11' && (
-              {/* N11 Entegrasyonu */}
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>N11 Bağlantısı</h4>
@@ -718,7 +717,6 @@ export default function SettingsPage() {
               </div>
                   )}
                   {selectedMarketplace === 'trendyol' && (
-              {/* Trendyol Entegrasyonu */}
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Trendyol Bağlantısı</h4>
@@ -796,7 +794,6 @@ export default function SettingsPage() {
               </div>
                   )}
                   {selectedMarketplace === 'hepsiburada' && (
-              {/* Hepsiburada Entegrasyonu */}
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada Bağlantısı</h4>
