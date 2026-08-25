@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
 
+    # Amazon SP-API
+    AMAZON_LWA_CLIENT_ID: Optional[str] = None
+    AMAZON_LWA_CLIENT_SECRET: Optional[str] = None
+
     @property
     def ASYNC_DATABASE_URI(self) -> str:
         db_url = self.DATABASE_URL or self.DATABASE_URI

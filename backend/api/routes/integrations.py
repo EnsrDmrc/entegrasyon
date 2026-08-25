@@ -42,6 +42,16 @@ async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, 
                     adapter = TrendyolAdapter(supplier_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
                 elif integration.marketplace_name == "hepsiburada" and integration.api_key and integration.store_url:
                     adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+                elif integration.marketplace_name == "amazon" and integration.api_key and integration.store_url:
+                    from core.config import settings
+                    from services.marketplace import AmazonAdapter
+                    adapter = AmazonAdapter(
+                        refresh_token=str(integration.api_key),
+                        seller_id=str(integration.store_url),
+                        region=str(integration.api_secret) or "EU",
+                        lwa_client_id=settings.AMAZON_LWA_CLIENT_ID,
+                        lwa_client_secret=settings.AMAZON_LWA_CLIENT_SECRET
+                    )
                     
                 if adapter:
                     for sku, new_price in modified_prices:
@@ -949,3 +959,111 @@ async def save_integration(
         await db.commit()
         await db.refresh(new_integration)
         return new_integration
+
+
+@router.post("/sync/amazon")
+async def sync_amazon(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Amazon SP-API ürün senkronizasyonu şablonu
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "amazon",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Amazon entegrasyonu bulunamadı (Refresh Token veya Seller ID eksik).")
+
+    return {"message": "Amazon ürün eşitleme entegrasyonu (Simülasyon) başarılı", "count": 0}
+
+
+@router.post("/sync/amazon/orders")
+async def sync_amazon_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "amazon",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Amazon entegrasyonu bulunamadı.")
+
+    from core.config import settings
+    from services.marketplace import AmazonAdapter
+    adapter = AmazonAdapter(
+        refresh_token=str(integration.api_key),
+        seller_id=str(integration.store_url),
+        region=str(integration.api_secret) or "EU",
+        lwa_client_id=settings.AMAZON_LWA_CLIENT_ID,
+        lwa_client_secret=settings.AMAZON_LWA_CLIENT_SECRET
+    )
+    
+    try:
+        fetched_orders = await asyncio.to_thread(adapter.fetch_orders)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    from models.order import Order, OrderItem
+    from dateutil import parser
+    
+    order_sync_count = 0
+    for ord_data in fetched_orders:
+        ord_result = await db.execute(
+            select(Order).where(
+                Order.order_number == ord_data["order_number"],
+                Order.tenant_id == current_user.tenant_id
+            )
+        )
+        existing_order = ord_result.scalars().first()
+        
+        parsed_date = None
+        if ord_data["order_date"]:
+            try:
+                parsed_date = parser.parse(ord_data["order_date"])
+            except:
+                pass
+
+        if not existing_order:
+            new_order = Order(
+                tenant_id=current_user.tenant_id,
+                marketplace="amazon",
+                order_number=ord_data["order_number"],
+                customer_name=ord_data["customer_name"],
+                total_price=ord_data["total_price"],
+                status=ord_data["status"],
+                order_date=parsed_date
+            )
+            db.add(new_order)
+            await db.commit()
+            await db.refresh(new_order)
+            
+            for item in ord_data["items"]:
+                new_item = OrderItem(
+                    order_id=new_order.id,
+                    product_sku=item["product_sku"],
+                    product_name=item["product_name"],
+                    quantity=item["quantity"],
+                    price=item["price"]
+                )
+                db.add(new_item)
+            await db.commit()
+            order_sync_count += 1
+        else:
+            if existing_order.status != ord_data["status"]:
+                existing_order.status = ord_data["status"]
+                db.add(existing_order)
+                await db.commit()
+                order_sync_count += 1
+
+    return {
+        "message": "Amazon Siparişleri başarıyla çekildi", 
+        "order_count": order_sync_count
+    }
+

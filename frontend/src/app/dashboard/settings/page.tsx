@@ -21,6 +21,16 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
   const [shopifyMessage, setShopifyMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
+  
+  const [amazonData, setAmazonData] = useState({
+    seller_id: '',
+    refresh_token: '',
+    region: 'EU'
+  });
+  const [amazonSyncing, setAmazonSyncing] = useState(false);
+  const [amazonOrderSyncing, setAmazonOrderSyncing] = useState(false);
+  const [amazonMessage, setAmazonMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   const [n11Data, setN11Data] = useState({
     api_key: '',
     api_secret: ''
@@ -59,6 +69,11 @@ export default function SettingsPage() {
           const shopify = data.find(i => i.marketplace_name === 'shopify');
           if (shopify) {
             setShopifyData({ store_url: shopify.store_url || '', api_key: '********' }); // Şifreyi gizli göster
+          }
+          
+          const amazon = data.find(i => i.marketplace_name === 'amazon');
+          if (amazon) {
+            setAmazonData({ seller_id: amazon.store_url || '', refresh_token: '********', region: amazon.api_secret || 'EU' });
           }
           const n11 = data.find(i => i.marketplace_name === 'n11');
           if (n11) {
@@ -207,7 +222,7 @@ export default function SettingsPage() {
   };
 
   const [activeTab, setActiveTab] = useState<'integrations' | 'ecommerce' | 'account'>('integrations');
-  const [selectedMarketplace, setSelectedMarketplace] = useState<'n11' | 'trendyol' | 'hepsiburada' | null>(null);
+  const [selectedMarketplace, setSelectedMarketplace] = useState<'n11' | 'trendyol' | 'hepsiburada' | 'amazon' | null>(null);
   const [selectedEcommerce, setSelectedEcommerce] = useState<'shopify' | null>(null);
 
   const [orderSyncing, setOrderSyncing] = useState(false);
@@ -232,6 +247,82 @@ export default function SettingsPage() {
     } finally {
       setOrderSyncing(false);
       setTimeout(() => setShopifyMessage(null), 5000);
+    }
+  };
+
+  
+  const handleSaveAmazon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAmazonMessage(null);
+
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          marketplace_name: 'amazon',
+          store_url: amazonData.seller_id,
+          api_key: amazonData.refresh_token.includes('*') ? undefined : amazonData.refresh_token,
+          api_secret: amazonData.region,
+          is_active: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Kaydedilemedi');
+      setAmazonMessage({ type: 'success', text: 'Amazon bilgileri kaydedildi!' });
+    } catch (err: any) {
+      setAmazonMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleSyncAmazon = async () => {
+    setAmazonSyncing(true);
+    setAmazonMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/amazon`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Senkronizasyon başarısız');
+      }
+      setAmazonMessage({ type: 'success', text: `${data.message}` });
+    } catch (error: any) {
+      setAmazonMessage({ type: 'error', text: error.message });
+    } finally {
+      setAmazonSyncing(false);
+      setTimeout(() => setAmazonMessage(null), 5000);
+    }
+  };
+
+  const handleSyncAmazonOrders = async () => {
+    setAmazonOrderSyncing(true);
+    setAmazonMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/amazon/orders`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Sipariş senkronizasyonu başarısız');
+      }
+      setAmazonMessage({ type: 'success', text: `${data.order_count} sipariş başarıyla çekildi/güncellendi!` });
+    } catch (error: any) {
+      setAmazonMessage({ type: 'error', text: error.message });
+    } finally {
+      setAmazonOrderSyncing(false);
+      setTimeout(() => setAmazonMessage(null), 5000);
     }
   };
 
@@ -622,9 +713,26 @@ export default function SettingsPage() {
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Pazaryeri Entegrasyonları</h3>
               
               {selectedMarketplace === null ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div style={ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }>
+                  <div className="card" onClick={() => setSelectedMarketplace('amazon')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Amazon</h4>
+                       {amazonData.seller_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Amazon Seller ID ve Refresh Token girerek entegre olun.</p>
+                  </div>
+
                   <div className="card" onClick={() => setSelectedMarketplace('n11')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       
+                  <div className="card" onClick={() => setSelectedMarketplace('amazon')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Amazon</h4>
+                       {amazonData.seller_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Amazon Seller ID ve Refresh Token girerek entegre olun.</p>
+                  </div>
+
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>N11</h4>
                        {n11Data.api_key ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
                      </div>
@@ -648,6 +756,87 @@ export default function SettingsPage() {
               ) : (
                 <div>
                   <button onClick={() => setSelectedMarketplace(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Geri Dön</button>
+                  
+                  {selectedMarketplace === 'amazon' && (
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Amazon Bağlantısı</h4>
+                  {amazonData.seller_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Amazon SP-API yetkilendirme bilgilerinizi girerek ürün ve siparişlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {amazonMessage && (
+                  <div className={`badge ${amazonMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {amazonMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveAmazon}>
+                  <div className="input-group">
+                    <label className="input-label">Seller ID (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Örn: A2Q3Y26CGQ..." 
+                      value={amazonData.seller_id}
+                      onChange={(e) => setAmazonData({...amazonData, seller_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Refresh Token</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Atzr|IwEBI..." 
+                      value={amazonData.refresh_token}
+                      onChange={(e) => setAmazonData({...amazonData, refresh_token: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Amazon Bölgesi (Region)</label>
+                    <select 
+                      className="input-field" 
+                      value={amazonData.region}
+                      onChange={(e) => setAmazonData({...amazonData, region: e.target.value})}
+                      required
+                    >
+                      <option value="EU">Avrupa (Türkiye Dahil)</option>
+                      <option value="NA">Kuzey Amerika</option>
+                      <option value="FE">Uzak Doğu</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {amazonData.seller_id && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncAmazon}
+                          disabled={amazonSyncing || amazonOrderSyncing}
+                        >
+                          {amazonSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncAmazonOrders}
+                          disabled={amazonSyncing || amazonOrderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {amazonOrderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+                  )}
+
                   {selectedMarketplace === 'n11' && (
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>

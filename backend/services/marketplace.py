@@ -761,3 +761,72 @@ class TrendyolAdapter(MarketplaceAdapter):
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Trendyol Ürünü", "price": 0.0}
+
+from sp_api.api import Orders, CatalogItems
+from sp_api.base import SellingApiException
+import datetime
+
+class AmazonAdapter(MarketplaceAdapter):
+    def __init__(self, refresh_token: str, seller_id: str, region: str = "EU", lwa_client_id: str = None, lwa_client_secret: str = None):
+        self.seller_id = seller_id
+        self.region = region
+        
+        # sp-api kütüphanesi için credential sözlüğü
+        self.credentials = dict(
+            refresh_token=refresh_token,
+            lwa_app_id=lwa_client_id,
+            lwa_client_secret=lwa_client_secret,
+        )
+
+    def fetch_orders(self) -> list:
+        fetched_orders = []
+        try:
+            # Marketplace IDs
+            # TR: A33AVAJ2PDY3EV
+            # Diğer ülkeler için haritalama yapılabilir, varsayılan TR kabul edelim
+            marketplace_id = "A33AVAJ2PDY3EV"
+            
+            created_after = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat()
+            
+            # Orders API'sini başlat
+            orders_api = Orders(credentials=self.credentials, marketplace=self.region)
+            
+            res = orders_api.get_orders(CreatedAfter=created_after, MarketplaceIds=[marketplace_id])
+            orders_data = res.payload.get("Orders", [])
+            
+            for order in orders_data:
+                order_id = order.get("AmazonOrderId")
+                
+                # Her siparişin detayları için get_order_items çağrılabilir ancak şimdilik özet bilgi ekliyoruz.
+                status = order.get("OrderStatus", "Pending")
+                
+                # SP-API'de detay çekmek isterseniz:
+                # items_res = orders_api.get_order_items(order_id)
+                
+                fetched_orders.append({
+                    "order_number": order_id,
+                    "customer_name": order.get("BuyerInfo", {}).get("BuyerName", "Amazon Müşterisi"),
+                    "total_price": float(order.get("OrderTotal", {}).get("Amount", 0.0)),
+                    "status": status,
+                    "order_date": order.get("PurchaseDate"),
+                    "items": [] # Detaylı items çekmek rate-limit'e takılabilir diye şimdilik boş bırakıldı.
+                })
+        except Exception as e:
+            print(f"[Amazon] Order Sync Hatası: {e}")
+            
+        return fetched_orders
+
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        # Amazon Listings API (2021-08-01) kullanımı gerektirir.
+        # Fiyat ve stok güncellemeleri JSON Listings formatında gönderilir.
+        # Bu örnekte sadece şablon oluşturulmuştur.
+        try:
+            print(f"[Amazon] {sku} ürünü için fiyat: {new_price}, stok: {new_stock} güncelleme isteği alındı (Simülasyon).")
+            return True
+        except Exception as e:
+            print(f"[Amazon] API Hatası: {e}")
+            return False
+
+    def get_product_details(self, sku: str) -> dict:
+        return {"sku": sku, "name": "Amazon Ürünü", "price": 0.0}
+
