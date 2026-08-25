@@ -206,7 +206,9 @@ export default function SettingsPage() {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'integrations' | 'account'>('integrations');
+  const [activeTab, setActiveTab] = useState<'integrations' | 'ecommerce' | 'account'>('integrations');
+  const [selectedMarketplace, setSelectedMarketplace] = useState<'n11' | 'trendyol' | 'hepsiburada' | null>(null);
+  const [selectedEcommerce, setSelectedEcommerce] = useState<'shopify' | null>(null);
 
   const [orderSyncing, setOrderSyncing] = useState(false);
 
@@ -513,6 +515,13 @@ export default function SettingsPage() {
               Pazaryeri Entegrasyonları
             </button>
             <button 
+              className={`btn ${activeTab === 'ecommerce' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'flex-start', border: activeTab === 'ecommerce' ? 'none' : '1px solid transparent', padding: '0.75rem 1rem' }}
+              onClick={() => setActiveTab('ecommerce')}
+            >
+              E-Ticaret Altyapısı
+            </button>
+            <button 
               className={`btn ${activeTab === 'account' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ justifyContent: 'flex-start', border: activeTab === 'account' ? 'none' : '1px solid transparent', padding: '0.75rem 1rem' }}
               onClick={() => setActiveTab('account')}
@@ -612,72 +621,34 @@ export default function SettingsPage() {
             <div className="card animate-fade-in">
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Pazaryeri Entegrasyonları</h3>
               
-              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Shopify Bağlantısı</h4>
-                  {shopifyData.store_url ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+              {selectedMarketplace === null ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <div className="card" onClick={() => setSelectedMarketplace('n11')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>N11</h4>
+                       {n11Data.api_key ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>N11 API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
+                  </div>
+                  <div className="card" onClick={() => setSelectedMarketplace('trendyol')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Trendyol</h4>
+                       {trendyolData.supplier_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Trendyol API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
+                  </div>
+                  <div className="card" onClick={() => setSelectedMarketplace('hepsiburada')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada</h4>
+                       {hepsiburadaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Hepsiburada API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
+                  </div>
                 </div>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                  Shopify mağazanıza ait Admin API erişim bilgilerini girerek ürünlerinizi senkronize edebilirsiniz.
-                </p>
-                
-                {shopifyMessage && (
-                  <div className={`badge ${shopifyMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
-                    {shopifyMessage.text}
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveShopify}>
-                  <div className="input-group">
-                    <label className="input-label">Mağaza Adresi</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      placeholder="magazaniz.myshopify.com" 
-                      value={shopifyData.store_url}
-                      onChange={(e) => setShopifyData({...shopifyData, store_url: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="input-label">Access Token</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      placeholder="shpat_xxxxxxxxxxxx" 
-                      value={shopifyData.api_key}
-                      onChange={(e) => setShopifyData({...shopifyData, api_key: e.target.value})}
-                      maxLength={38}
-                      required
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
-                    {shopifyData.store_url && (
-                      <>
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary"
-                          onClick={handleSyncShopify}
-                          disabled={syncing || orderSyncing}
-                        >
-                          {syncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary"
-                          onClick={handleSyncShopifyOrders}
-                          disabled={syncing || orderSyncing}
-                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
-                        >
-                          {orderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </form>
-              </div>
-
+              ) : (
+                <div>
+                  <button onClick={() => setSelectedMarketplace(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Geri Dön</button>
+                  {selectedMarketplace === 'n11' && (
               {/* N11 Entegrasyonu */}
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -745,73 +716,8 @@ export default function SettingsPage() {
                   </div>
                 </form>
               </div>
-
-              {/* Hepsiburada Entegrasyonu */}
-              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada Bağlantısı</h4>
-                  {hepsiburadaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
-                </div>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                  Hepsiburada Satıcı ID (Merchant ID) ve API Şifresi (Token) bilgilerinizi girerek ürünlerinizi senkronize edebilirsiniz.
-                </p>
-                
-                {hepsiburadaMessage && (
-                  <div className={`badge ${hepsiburadaMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
-                    {hepsiburadaMessage.text}
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveHepsiburada}>
-                  <div className="input-group">
-                    <label className="input-label">Satıcı ID (Merchant ID)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      placeholder="Hepsiburada Satıcı ID'nizi giriniz" 
-                      value={hepsiburadaData.merchant_id}
-                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, merchant_id: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="input-label">API Şifresi</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      placeholder="Hepsiburada API Şifrenizi giriniz" 
-                      value={hepsiburadaData.api_key}
-                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, api_key: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
-                    {hepsiburadaData.merchant_id && (
-                      <>
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary"
-                          onClick={handleSyncHepsiburada}
-                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
-                        >
-                          {hepsiburadaSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-secondary"
-                          onClick={handleSyncHepsiburadaOrders}
-                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
-                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
-                        >
-                          {hepsiburadaOrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </form>
-              </div>
-
+                  )}
+                  {selectedMarketplace === 'trendyol' && (
               {/* Trendyol Entegrasyonu */}
               <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -888,6 +794,165 @@ export default function SettingsPage() {
                   </div>
                 </form>
               </div>
+                  )}
+                  {selectedMarketplace === 'hepsiburada' && (
+              {/* Hepsiburada Entegrasyonu */}
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Hepsiburada Bağlantısı</h4>
+                  {hepsiburadaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Hepsiburada Satıcı ID (Merchant ID) ve API Şifresi (Token) bilgilerinizi girerek ürünlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {hepsiburadaMessage && (
+                  <div className={`badge ${hepsiburadaMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {hepsiburadaMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveHepsiburada}>
+                  <div className="input-group">
+                    <label className="input-label">Satıcı ID (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Hepsiburada Satıcı ID'nizi giriniz" 
+                      value={hepsiburadaData.merchant_id}
+                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, merchant_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">API Şifresi</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Hepsiburada API Şifrenizi giriniz" 
+                      value={hepsiburadaData.api_key}
+                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, api_key: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {hepsiburadaData.merchant_id && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncHepsiburada}
+                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
+                        >
+                          {hepsiburadaSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncHepsiburadaOrders}
+                          disabled={hepsiburadaSyncing || hepsiburadaOrderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {hepsiburadaOrderSyncing ? 'İşlem yapılıyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'ecommerce' && (
+            <div className="card animate-fade-in">
+              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>E-Ticaret Altyapısı Entegrasyonları</h3>
+              
+              {selectedEcommerce === null ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <div className="card" onClick={() => setSelectedEcommerce('shopify')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Shopify</h4>
+                       {shopifyData.store_url ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Shopify API bilgilerinizi girmek veya güncellemek için tıklayın.</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button onClick={() => setSelectedEcommerce(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Geri Dön</button>
+                  {selectedEcommerce === 'shopify' && (
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Shopify Bağlantısı</h4>
+                  {shopifyData.store_url ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Shopify mağazanıza ait Admin API erişim bilgilerini girerek ürünlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {shopifyMessage && (
+                  <div className={`badge ${shopifyMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {shopifyMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveShopify}>
+                  <div className="input-group">
+                    <label className="input-label">Mağaza Adresi</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="magazaniz.myshopify.com" 
+                      value={shopifyData.store_url}
+                      onChange={(e) => setShopifyData({...shopifyData, store_url: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Access Token</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="shpat_xxxxxxxxxxxx" 
+                      value={shopifyData.api_key}
+                      onChange={(e) => setShopifyData({...shopifyData, api_key: e.target.value})}
+                      maxLength={38}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {shopifyData.store_url && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncShopify}
+                          disabled={syncing || orderSyncing}
+                        >
+                          {syncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncShopifyOrders}
+                          disabled={syncing || orderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {orderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
