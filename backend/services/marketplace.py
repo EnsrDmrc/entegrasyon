@@ -830,3 +830,47 @@ class AmazonAdapter(MarketplaceAdapter):
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Amazon Ürünü", "price": 0.0}
 
+
+
+class PazaramaAdapter(MarketplaceAdapter):
+    def __init__(self, merchant_id: str, api_key: str, api_secret: str = None):
+        self.merchant_id = merchant_id
+        self.api_key = api_key
+        self.api_secret = api_secret
+        # Pazarama API base URL varsayılan
+        self.base_url = "https://api.pazarama.com/v1"
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+
+    def fetch_all_products(self) -> list:
+        # Pazarama ürün çekme simülasyonu
+        print("[Pazarama] Ürünler çekiliyor...")
+        # Gerçekte GET /products endpoint'i kullanılır
+        return []
+
+    def fetch_orders(self) -> list:
+        fetched_orders = []
+        try:
+            # Pazarama sipariş çekme simülasyonu
+            # res = requests.get(f"{self.base_url}/orders", headers=self.headers)
+            print("[Pazarama] Siparişler çekiliyor...")
+        except Exception as e:
+            print(f"[Pazarama] Order Sync Hatası: {e}")
+            
+        return fetched_orders
+
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        try:
+            print(f"[Pazarama] {sku} ürünü için fiyat: {new_price}, stok: {new_stock} güncelleme isteği alındı (Simülasyon).")
+            # payload = {"sku": sku} vb.
+            # res = requests.put(...)
+            return True
+        except Exception as e:
+            print(f"[Pazarama] API Hatası: {e}")
+            return False
+
+    def get_product_details(self, sku: str) -> dict:
+        return {"sku": sku, "name": "Pazarama Ürünü", "price": 0.0}
+

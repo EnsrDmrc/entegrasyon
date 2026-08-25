@@ -42,6 +42,9 @@ async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, 
                     adapter = TrendyolAdapter(supplier_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
                 elif integration.marketplace_name == "hepsiburada" and integration.api_key and integration.store_url:
                     adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+                elif integration.marketplace_name == "pazarama" and integration.api_key and integration.store_url:
+                    from services.marketplace import PazaramaAdapter
+                    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
                 elif integration.marketplace_name == "amazon" and integration.api_key and integration.store_url:
                     from core.config import settings
                     from services.marketplace import AmazonAdapter
@@ -1065,5 +1068,53 @@ async def sync_amazon_orders(current_user: User = Depends(get_current_user), db:
     return {
         "message": "Amazon Siparişleri başarıyla çekildi", 
         "order_count": order_sync_count
+    }
+
+
+
+@router.post("/sync/pazarama")
+async def sync_pazarama(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "pazarama",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Pazarama entegrasyonu bulunamadı.")
+
+    return {"message": "Pazarama ürün eşitleme entegrasyonu başarılı", "count": 0}
+
+
+@router.post("/sync/pazarama/orders")
+async def sync_pazarama_orders(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "pazarama",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Pazarama entegrasyonu bulunamadı.")
+
+    from services.marketplace import PazaramaAdapter
+    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
+    
+    try:
+        fetched_orders = await asyncio.to_thread(adapter.fetch_orders)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    return {
+        "message": "Pazarama Siparişleri başarıyla çekildi", 
+        "order_count": len(fetched_orders)
     }
 

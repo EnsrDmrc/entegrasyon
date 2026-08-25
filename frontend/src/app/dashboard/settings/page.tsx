@@ -31,6 +31,16 @@ export default function SettingsPage() {
   const [amazonOrderSyncing, setAmazonOrderSyncing] = useState(false);
   const [amazonMessage, setAmazonMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
+  
+  const [pazaramaData, setPazaramaData] = useState({
+    merchant_id: '',
+    api_key: '',
+    api_secret: ''
+  });
+  const [pazaramaSyncing, setPazaramaSyncing] = useState(false);
+  const [pazaramaOrderSyncing, setPazaramaOrderSyncing] = useState(false);
+  const [pazaramaMessage, setPazaramaMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   const [n11Data, setN11Data] = useState({
     api_key: '',
     api_secret: ''
@@ -75,6 +85,12 @@ export default function SettingsPage() {
           if (amazon) {
             setAmazonData({ seller_id: amazon.store_url || '', refresh_token: '********', region: amazon.api_secret || 'EU' });
           }
+          
+          const pazarama = data.find((i: any) => i.marketplace_name === 'pazarama');
+          if (pazarama) {
+            setPazaramaData({ merchant_id: pazarama.store_url || '', api_key: '********', api_secret: pazarama.api_secret ? '********' : '' });
+          }
+
           const n11 = data.find(i => i.marketplace_name === 'n11');
           if (n11) {
             setN11Data({ api_key: '********', api_secret: '********' });
@@ -222,7 +238,7 @@ export default function SettingsPage() {
   };
 
   const [activeTab, setActiveTab] = useState<'integrations' | 'ecommerce' | 'account'>('integrations');
-  const [selectedMarketplace, setSelectedMarketplace] = useState<'n11' | 'trendyol' | 'hepsiburada' | 'amazon' | null>(null);
+  const [selectedMarketplace, setSelectedMarketplace] = useState<'n11' | 'trendyol' | 'hepsiburada' | 'amazon' | 'pazarama' | null>(null);
   const [selectedEcommerce, setSelectedEcommerce] = useState<'shopify' | null>(null);
 
   const [orderSyncing, setOrderSyncing] = useState(false);
@@ -323,6 +339,82 @@ export default function SettingsPage() {
     } finally {
       setAmazonOrderSyncing(false);
       setTimeout(() => setAmazonMessage(null), 5000);
+    }
+  };
+
+  
+  const handleSavePazarama = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPazaramaMessage(null);
+
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          marketplace_name: 'pazarama',
+          store_url: pazaramaData.merchant_id,
+          api_key: pazaramaData.api_key.includes('*') ? undefined : pazaramaData.api_key,
+          api_secret: pazaramaData.api_secret.includes('*') ? undefined : pazaramaData.api_secret,
+          is_active: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Kaydedilemedi');
+      setPazaramaMessage({ type: 'success', text: 'Pazarama bilgileri kaydedildi!' });
+    } catch (err: any) {
+      setPazaramaMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleSyncPazarama = async () => {
+    setPazaramaSyncing(true);
+    setPazaramaMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/pazarama`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Senkronizasyon başarısız');
+      }
+      setPazaramaMessage({ type: 'success', text: `${data.message}` });
+    } catch (error: any) {
+      setPazaramaMessage({ type: 'error', text: error.message });
+    } finally {
+      setPazaramaSyncing(false);
+      setTimeout(() => setPazaramaMessage(null), 5000);
+    }
+  };
+
+  const handleSyncPazaramaOrders = async () => {
+    setPazaramaOrderSyncing(true);
+    setPazaramaMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync/pazarama/orders`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Sipariş senkronizasyonu başarısız');
+      }
+      setPazaramaMessage({ type: 'success', text: `${data.order_count} sipariş başarıyla çekildi/güncellendi!` });
+    } catch (error: any) {
+      setPazaramaMessage({ type: 'error', text: error.message });
+    } finally {
+      setPazaramaOrderSyncing(false);
+      setTimeout(() => setPazaramaMessage(null), 5000);
     }
   };
 
@@ -713,7 +805,16 @@ export default function SettingsPage() {
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Pazaryeri Entegrasyonları</h3>
               
               {selectedMarketplace === null ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div style={ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }>
+
+                  <div className="card" onClick={() => setSelectedMarketplace('pazarama')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Pazarama</h4>
+                       {pazaramaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Pazarama Mağaza ID ve API bilgilerinizi girerek entegre olun.</p>
+                  </div>
+
                   
                   <div className="card" onClick={() => setSelectedMarketplace('amazon')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -824,6 +925,74 @@ export default function SettingsPage() {
                           style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
                         >
                           {amazonOrderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </form>
+              </div>
+                  )}
+
+                  
+                  {selectedMarketplace === 'pazarama' && (
+              <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Pazarama Bağlantısı</h4>
+                  {pazaramaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                  Pazarama mağaza yetkilendirme bilgilerinizi girerek ürün ve siparişlerinizi senkronize edebilirsiniz.
+                </p>
+                
+                {pazaramaMessage && (
+                  <div className={`badge ${pazaramaMessage.type === 'error' ? 'badge-red' : 'badge-green'}`} style={{ marginBottom: '1rem', display: 'block', padding: '0.75rem' }}>
+                    {pazaramaMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSavePazarama}>
+                  <div className="input-group">
+                    <label className="input-label">Mağaza ID (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Örn: 123456" 
+                      value={pazaramaData.merchant_id}
+                      onChange={(e) => setPazaramaData({...pazaramaData, merchant_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">API Anahtarı (Key / Token)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="API Key veya Token" 
+                      value={pazaramaData.api_key}
+                      onChange={(e) => setPazaramaData({...pazaramaData, api_key: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>
+                    {pazaramaData.merchant_id && (
+                      <>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncPazarama}
+                          disabled={pazaramaSyncing || pazaramaOrderSyncing}
+                        >
+                          {pazaramaSyncing ? 'Ürünler Çekiliyor...' : 'Tüm Ürünleri Çek'}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={handleSyncPazaramaOrders}
+                          disabled={pazaramaSyncing || pazaramaOrderSyncing}
+                          style={{ backgroundColor: '#f1f5f9', color: '#334155' }}
+                        >
+                          {pazaramaOrderSyncing ? 'Siparişler Çekiliyor...' : 'Tüm Siparişleri Çek'}
                         </button>
                       </>
                     )}
@@ -1053,7 +1222,16 @@ export default function SettingsPage() {
               <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>E-Ticaret Altyapısı Entegrasyonları</h3>
               
               {selectedEcommerce === null ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div style={ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }>
+
+                  <div className="card" onClick={() => setSelectedMarketplace('pazarama')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Pazarama</h4>
+                       {pazaramaData.merchant_id ? <span className="badge badge-green">Aktif</span> : <span className="badge badge-red">Pasif</span>}
+                     </div>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>Pazarama Mağaza ID ve API bilgilerinizi girerek entegre olun.</p>
+                  </div>
+
                   <div className="card" onClick={() => setSelectedEcommerce('shopify')} style={{ cursor: 'pointer', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', backgroundColor: '#f8fafc', transition: 'all 0.2s' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <h4 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Shopify</h4>
