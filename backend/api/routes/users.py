@@ -125,6 +125,27 @@ async def update_product(
                 new_stock=data.quantity
             )
 
+        # Pazarama'ya Push Et
+        pazarama_result = await db.execute(
+            select(MarketplaceIntegration)
+            .where(
+                MarketplaceIntegration.tenant_id == current_user.tenant_id,
+                MarketplaceIntegration.marketplace_name == "pazarama",
+                MarketplaceIntegration.is_active == True
+            )
+        )
+        pazarama_int = pazarama_result.scalars().first()
+        
+        if pazarama_int and pazarama_int.api_key and pazarama_int.store_url:
+            from services.marketplace import PazaramaAdapter
+            p_adapter = PazaramaAdapter(merchant_id=str(pazarama_int.store_url), api_key=str(pazarama_int.api_key), api_secret=str(pazarama_int.api_secret) if pazarama_int.api_secret else None)
+            await asyncio.to_thread(
+                p_adapter.update_product,
+                sku=product.sku,
+                new_price=data.price,
+                new_stock=data.quantity
+            )
+
     return {"message": "Ürün başarıyla güncellendi"}
 
 from schemas.order import OrderSchema

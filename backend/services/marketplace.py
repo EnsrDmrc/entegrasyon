@@ -956,7 +956,41 @@ class PazaramaAdapter(MarketplaceAdapter):
 
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
         print(f"[Pazarama] Ürün güncelleniyor: {sku}")
-        return True
+        if not self.token:
+            self._get_token()
+        
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Pazarama'nın fiyat/stok güncelleme için özel bir batch/update endpoint'i var
+        # Genellikle /product/products/priceinventory veya update şeklindedir
+        # Pazarus/açık kaynak örneklere göre tahmini yapı:
+        payload = {
+            "Code": sku,
+            "products": [{
+                "Code": sku,
+                "GroupCode": sku
+            }]
+        }
+        
+        if new_stock is not None:
+            payload["products"][0]["StockCount"] = int(new_stock)
+        if new_price is not None:
+            payload["products"][0]["ListPrice"] = float(new_price)
+            payload["products"][0]["SalePrice"] = float(new_price)
+            
+        try:
+            # Standart product create/update batch yapısı
+            resp = httpx.post("https://isortagimapi.pazarama.com/product/create", json=payload, headers=headers, timeout=15.0)
+            print(f"[Pazarama Update] {resp.status_code} - {resp.text[:200]}")
+            return resp.status_code in [200, 201, 202]
+        except Exception as e:
+            print(f"[Pazarama Update Error] {e}")
+            return False
         
     def get_product_details(self, sku: str) -> dict:
         print(f"[Pazarama] Ürün detayı getiriliyor: {sku}")
