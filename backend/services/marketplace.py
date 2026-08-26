@@ -820,19 +820,20 @@ class PazaramaAdapter(MarketplaceAdapter):
                 
             resp = httpx.get(url, headers=headers, timeout=30.0)
             if resp.status_code != 200:
-                print(f"[Pazarama Error] Ürünler çekilemedi. HTTP {resp.status_code}: {resp.text}")
-                # Hata durumunda diğer endpoint'i deneyelim
                 alt_url = f"https://isortagimapi.pazarama.com/product/products/approved?Size=100&Page={page}"
                 resp = httpx.get(alt_url, headers=headers, timeout=30.0)
                 if resp.status_code != 200:
-                    break
+                    raise Exception(f"Pazarama API Hatası (HTTP {resp.status_code}): {resp.text[:200]}")
                 
             data = resp.json()
             
             # Pazarama API bazen 'items' bazen 'products' bazen 'data' dönebilir
-            items = data.get("items") or data.get("products") or data.get("data") or []
+            items = data.get("items") or data.get("products") or data.get("data")
             
-            if not items:
+            if items is None or len(items) == 0:
+                if page == 1:
+                    # İlk sayfada boş dönerse direkt hata fırlat ki kullanıcı bilsin
+                    raise Exception(f"Pazarama'dan boş veri döndü! Gelen ham veri: {str(data)[:200]}")
                 break
                 
             for item in items:
