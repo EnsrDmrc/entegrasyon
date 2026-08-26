@@ -918,10 +918,13 @@ class PazaramaAdapter(MarketplaceAdapter):
                 price = item.get("salePrice") or item.get("listPrice") or item.get("price") or 0.0
                 stock = item.get("stockCount") or item.get("stock") or item.get("quantity") or 0
                 all_products.append({
-                    'sku': str(item.get("code") or item.get("barcode") or item.get("id") or ""),
-                    'name': item.get("name", "İsimsiz Ürün"),
+                    'sku': str(item.get("code") or item.get("Code") or item.get("barcode") or item.get("id") or ""),
+                    'name': item.get("name") or item.get("Name") or item.get("DisplayName") or "İsimsiz Ürün",
                     'price': float(price),
-                    'stock': int(stock)
+                    'stock': int(stock),
+                    'category_id': str(item.get("categoryId") or item.get("CategoryId") or ""),
+                    'brand_id': str(item.get("brandId") or item.get("BrandId") or ""),
+                    'images': item.get("images") or item.get("Images") or []
                 })
                 
             total_count = data.get("totalCount") or 0

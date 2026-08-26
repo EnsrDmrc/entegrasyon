@@ -344,6 +344,108 @@ async def n11_force_sync(order_number: str, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/sync/pazarama")
+async def sync_pazarama(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.marketplace_name == "pazarama",
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integration = result.scalars().first()
+
+    if not integration or not integration.api_key or not integration.store_url:
+        raise HTTPException(status_code=400, detail="Aktif Pazarama entegrasyonu bulunamadı.")
+
+    from services.marketplace import PazaramaAdapter
+    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
+    try:
+        fetched_items = await asyncio.to_thread(adapter.fetch_products)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not fetched_items:
+        return {"message": "Pazarama'da çekilecek ürün bulunamadı.", "count": 0}
+
+    from models.product import Product
+    from models.inventory import Inventory
+    import json
+
+    sync_count = 0
+    modified_prices = []
+
+    for item in fetched_items:
+        if not item.get("sku"):
+            continue
+
+        prod_result = await db.execute(
+            select(Product).where(
+                Product.sku == item["sku"],
+                Product.tenant_id == current_user.tenant_id
+            )
+        )
+        product = prod_result.scalars().first()
+
+        if not product:
+            product = Product(
+                tenant_id=current_user.tenant_id,
+                sku=item["sku"],
+                name=item["name"],
+                price=item["price"],
+                pazarama_category_id=item.get("category_id"),
+                pazarama_brand_id=item.get("brand_id"),
+                images_json=json.dumps(item.get("images", [])) if item.get("images") else None
+            )
+            db.add(product)
+            await db.commit()
+            await db.refresh(product)
+        else:
+            product.name = item["name"]
+            if product.price != float(item["price"]):
+                product.price = float(item["price"])
+                modified_prices.append((item["sku"], product.price))
+                
+            # Gelen metadata verilerini güncelle
+            if item.get("category_id"):
+                product.pazarama_category_id = item["category_id"]
+            if item.get("brand_id"):
+                product.pazarama_brand_id = item["brand_id"]
+            if item.get("images"):
+                product.images_json = json.dumps(item["images"])
+                
+            db.add(product)
+            await db.commit()
+
+        # Stok tablosunu (Inventory) güncelle/ekle
+        inv_result = await db.execute(
+            select(Inventory).where(
+                Inventory.product_id == product.id,
+                Inventory.marketplace == "pazarama"
+            )
+        )
+        inventory = inv_result.scalars().first()
+
+        if inventory:
+            inventory.quantity = item["stock"]
+        else:
+            new_inv = Inventory(
+                product_id=product.id,
+                marketplace="pazarama",
+                quantity=item["stock"]
+            )
+            db.add(new_inv)
+        
+        await db.commit()
+        sync_count += 1
+
+    if modified_prices:
+        from tasks import push_price_updates_to_others
+        background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "pazarama", modified_prices)
+
+    return {"message": "Pazarama ürünleri başarıyla çekildi", "count": sync_count}
+
 @router.post("/sync/n11")
 async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
