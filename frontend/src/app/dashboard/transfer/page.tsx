@@ -26,7 +26,7 @@ export default function TransferPage() {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/products`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
