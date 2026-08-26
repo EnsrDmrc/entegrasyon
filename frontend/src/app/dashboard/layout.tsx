@@ -72,12 +72,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Siparişler
           </Link>
           <Link 
-            href="/dashboard/transfer" 
-            className={`sidebar-link ${pathname.includes('/transfer') ? 'active' : ''}`}
-          >
-            Ürün Aktarımı
-          </Link>
-          <Link 
             href="/dashboard/settings" 
             className={`sidebar-link ${pathname.includes('/settings') ? 'active' : ''}`}
           >
