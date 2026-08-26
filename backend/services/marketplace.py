@@ -917,6 +917,14 @@ class PazaramaAdapter(MarketplaceAdapter):
             }
         ]
 
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        print(f"[Pazarama] Ürün güncelleniyor: {sku}")
+        return True
+        
+    def get_product_details(self, sku: str) -> dict:
+        print(f"[Pazarama] Ürün detayı getiriliyor: {sku}")
+        return {}
+
 class AmazonAdapter(MarketplaceAdapter):
     def __init__(self, seller_id: str, refresh_token: str):
         self.seller_id = seller_id
@@ -930,3 +938,11 @@ class AmazonAdapter(MarketplaceAdapter):
     def fetch_orders(self) -> list:
         print('[Amazon] Siparişler çekiliyor...')
         return []
+
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+        print(f"[Amazon] Ürün güncelleniyor: {sku}")
+        return True
+        
+    def get_product_details(self, sku: str) -> dict:
+        print(f"[Amazon] Ürün detayı getiriliyor: {sku}")
+        return {}
