@@ -838,6 +838,43 @@ class PazaramaAdapter(MarketplaceAdapter):
         else:
             raise Exception(f"Pazarama token alınamadı. HTTP {resp.status_code}: {resp.text[:300]}")
 
+    async def get_categories(self):
+        import httpx
+        if not self.token:
+            self._get_token()
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/json"
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://isortagimapi.pazarama.com/Category", headers=headers, timeout=30.0)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                # Bazen küçük harfle olabilir, fallback yapalım
+                resp2 = await client.get("https://isortagimapi.pazarama.com/category", headers=headers, timeout=30.0)
+                if resp2.status_code == 200:
+                    return resp2.json()
+                raise Exception(f"Pazarama kategorileri alınamadı: {resp.status_code} - {resp.text[:200]}")
+
+    async def get_brands(self):
+        import httpx
+        if not self.token:
+            self._get_token()
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/json"
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://isortagimapi.pazarama.com/Brand", headers=headers, timeout=30.0)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                resp2 = await client.get("https://isortagimapi.pazarama.com/brand", headers=headers, timeout=30.0)
+                if resp2.status_code == 200:
+                    return resp2.json()
+                raise Exception(f"Pazarama markaları alınamadı: {resp.status_code} - {resp.text[:200]}")
+
     def fetch_all_products(self) -> list:
         print('[Pazarama] Ürünler gerçek API\'den çekiliyor...')
         if not self.token:
