@@ -1108,16 +1108,12 @@ async def sync_pazarama(background_tasks: BackgroundTasks, current_user: User = 
         
         if existing_product:
             existing_product.price = prod_data["price"]
-            existing_product.stock = prod_data["stock"]
         else:
             new_product = Product(
                 tenant_id=current_user.tenant_id,
                 sku=prod_data["sku"],
                 name=prod_data["name"],
-                price=prod_data["price"],
-                stock=prod_data["stock"],
-                barcode=prod_data.get("barcode", ""),
-                description=prod_data.get("description", "")
+                price=prod_data["price"]
             )
             db.add(new_product)
         sync_count += 1
