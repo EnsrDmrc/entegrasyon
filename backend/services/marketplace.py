@@ -954,6 +954,9 @@ class PazaramaAdapter(MarketplaceAdapter):
             }
         ]
 
+    def get_product_details(self, sku: str) -> dict:
+        return {}
+
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
         print(f"[Pazarama] Ürün güncelleniyor: {sku}")
         if not self.token:
