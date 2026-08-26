@@ -47,6 +47,17 @@ export default function TransferPage() {
   const openTransferModal = (product: any) => {
     setSelectedProduct(product);
     setTransferMessage(null);
+    
+    // Son kullanılan ID'leri localStorage'dan al
+    const savedCategoryId = localStorage.getItem('lastPazaramaCategoryId') || '';
+    const savedBrandId = localStorage.getItem('lastPazaramaBrandId') || '';
+    
+    setTransferData(prev => ({
+      ...prev,
+      target_category_id: savedCategoryId,
+      target_brand_id: savedBrandId
+    }));
+    
     setIsModalOpen(true);
   };
 
@@ -54,6 +65,10 @@ export default function TransferPage() {
     e.preventDefault();
     setTransferring(true);
     setTransferMessage(null);
+    
+    // Başarılı olursa diye girilen ID'leri kaydet
+    localStorage.setItem('lastPazaramaCategoryId', transferData.target_category_id);
+    localStorage.setItem('lastPazaramaBrandId', transferData.target_brand_id);
     
     try {
       const token = localStorage.getItem('token');
