@@ -11,6 +11,7 @@ from models.integration import MarketplaceIntegration
 from models.product import Product
 from models.inventory import Inventory
 from schemas.integration import IntegrationCreate, IntegrationResponse
+from schemas.transfer import ProductTransferRequest
 from services.marketplace import ShopifyAdapter, N11Adapter
 
 router = APIRouter()
@@ -1229,3 +1230,46 @@ async def sync_pazarama_orders(current_user: User = Depends(get_current_user), d
         "order_count": order_sync_count
     }
 
+@router.post("/transfer")
+async def transfer_product(
+    data: ProductTransferRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from services.marketplace import N11Adapter, PazaramaAdapter
+    
+    # 1. Kaynak ve Hedef entegrasyonlarını bul
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.tenant_id == current_user.tenant_id))
+    integrations = result.scalars().all()
+    
+    source_int = next((i for i in integrations if i.marketplace_name == data.source_marketplace and i.is_active), None)
+    target_int = next((i for i in integrations if i.marketplace_name == data.target_marketplace and i.is_active), None)
+    
+    if not source_int:
+        raise HTTPException(status_code=400, detail=f"Kaynak pazaryeri ({data.source_marketplace}) aktif değil veya bulunamadı.")
+    if not target_int:
+        raise HTTPException(status_code=400, detail=f"Hedef pazaryeri ({data.target_marketplace}) aktif değil veya bulunamadı.")
+        
+    try:
+        # 2. Kaynak platformdan detayları çek
+        if data.source_marketplace == "n11":
+            source_adapter = N11Adapter(api_key=str(source_int.api_key), api_secret=str(source_int.api_secret))
+            product_details = source_adapter.get_product_details(data.sku)
+        else:
+            raise HTTPException(status_code=400, detail="Desteklenmeyen kaynak pazaryeri")
+            
+        # 3. Hedef platforma yükle
+        if data.target_marketplace == "pazarama":
+            target_adapter = PazaramaAdapter(merchant_id=str(target_int.store_url), api_key=str(target_int.api_key), api_secret=str(target_int.api_secret))
+            transfer_result = target_adapter.create_product(
+                product_data=product_details,
+                target_category_id=data.target_category_id,
+                target_brand_id=data.target_brand_id,
+                vat_rate=data.vat_rate
+            )
+            return {"message": "Ürün başarıyla aktarıldı", "details": transfer_result}
+        else:
+            raise HTTPException(status_code=400, detail="Desteklenmeyen hedef pazaryeri")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Aktarım başarısız: {str(e)}")

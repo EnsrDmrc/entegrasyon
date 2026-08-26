@@ -219,6 +219,35 @@ class N11Adapter(MarketplaceAdapter):
         self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl', settings=settings)
         self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl', settings=settings)
         
+    def get_product_details(self, sku: str) -> dict:
+        try:
+            res = self.product_client.service.GetProductBySellerCode(auth=self.auth, sellerCode=sku)
+            if res.result.status == "failure":
+                raise Exception(f"N11 Ürün detayı çekilemedi: {res.result.errorMessage}")
+            
+            prod = res.product
+            # N11'den gelen veriyi standardize edelim
+            images = []
+            if hasattr(prod, 'images') and prod.images and hasattr(prod.images, 'image'):
+                for img in prod.images.image:
+                    if hasattr(img, 'url'):
+                        images.append(img.url)
+                        
+            description = ""
+            if hasattr(prod, 'description'):
+                description = prod.description
+                
+            return {
+                "sku": sku,
+                "name": prod.title,
+                "description": description,
+                "price": float(prod.price) if prod.price else 0.0,
+                "images": images,
+                "category_id": prod.category.id if hasattr(prod, 'category') and prod.category else None,
+            }
+        except Exception as e:
+            raise Exception(f"N11'den {sku} kodlu ürün detayları alınırken hata oluştu: {str(e)}")
+            
     def fetch_all_products(self) -> list:
         fetched_variants = []
         try:
@@ -895,6 +924,53 @@ class PazaramaAdapter(MarketplaceAdapter):
     def get_product_details(self, sku: str) -> dict:
         print(f"[Pazarama] Ürün detayı getiriliyor: {sku}")
         return {}
+
+    def create_product(self, product_data: dict, target_category_id: int, target_brand_id: int, vat_rate: int) -> dict:
+        if not self.token:
+            self._get_token()
+            
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Pazarama'nın beklediği images formatı
+        pazarama_images = []
+        for img_url in product_data.get("images", []):
+            pazarama_images.append({"imageurl": img_url})
+            
+        payload = {
+            "products": [
+                {
+                    "Name": product_data.get("name")[:100],
+                    "DisplayName": product_data.get("name")[:100],
+                    "Description": product_data.get("description", "Açıklama bulunmuyor.") or "Açıklama bulunmuyor.",
+                    "BrandId": int(target_brand_id),
+                    "CategoryId": int(target_category_id),
+                    "Code": str(product_data.get("sku")),
+                    "GroupCode": str(product_data.get("sku")),
+                    "StockCount": int(product_data.get("stock", 0)),
+                    "VatRate": int(vat_rate),
+                    "ListPrice": float(product_data.get("price", 0.0)),
+                    "SalePrice": float(product_data.get("price", 0.0)),
+                    "Desi": 1,
+                    "images": pazarama_images
+                }
+            ]
+        }
+        
+        try:
+            resp = httpx.post("https://isortagimapi.pazarama.com/product/create", headers=headers, json=payload, timeout=30.0)
+            if resp.status_code not in (200, 201):
+                raise Exception(f"Pazarama Ürün Oluşturma Hatası (HTTP {resp.status_code}): {resp.text[:300]}")
+                
+            resp_data = resp.json()
+            # Pazarama, başarılı ise genelde UUID döner (onay sürecine girdiği için)
+            return {"success": True, "message": "Ürün başarıyla Pazarama'ya aktarıldı ve onay sürecine girdi.", "data": resp_data}
+        except Exception as e:
+            raise Exception(f"Pazarama'ya ürün aktarılırken hata oluştu: {str(e)}")
 
 class AmazonAdapter(MarketplaceAdapter):
     def __init__(self, seller_id: str, refresh_token: str, region: str = "EU", lwa_client_id: str = None, lwa_client_secret: str = None):
