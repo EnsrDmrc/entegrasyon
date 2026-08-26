@@ -102,8 +102,8 @@ export default function TransferPage() {
         sku: selectedProduct.sku,
         source_marketplace: 'n11',
         target_marketplace: transferData.target_marketplace,
-        target_category_id: parseInt(transferData.target_category_id),
-        target_brand_id: parseInt(transferData.target_brand_id),
+        target_category_id: transferData.target_category_id,
+        target_brand_id: transferData.target_brand_id,
         vat_rate: parseInt(transferData.vat_rate)
       };
 
