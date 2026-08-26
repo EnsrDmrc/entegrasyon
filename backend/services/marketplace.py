@@ -794,7 +794,10 @@ class PazaramaAdapter(MarketplaceAdapter):
         
         resp = httpx.post("https://isortagimgiris.pazarama.com/connect/token", headers=headers, data=data, timeout=30.0)
         if resp.status_code == 200:
-            self.token = resp.json().get("access_token")
+            resp_json = resp.json()
+            self.token = resp_json.get("access_token")
+            if not self.token:
+                raise Exception(f"Pazarama token alınamadı (Yanıt 200 ama token yok): {resp.text}")
         else:
             raise Exception(f"Pazarama token alınamadı. HTTP {resp.status_code}: {resp.text}")
 
