@@ -139,12 +139,31 @@ async def update_product(
         if pazarama_int and pazarama_int.api_key and pazarama_int.store_url:
             from services.marketplace import PazaramaAdapter
             p_adapter = PazaramaAdapter(merchant_id=str(pazarama_int.store_url), api_key=str(pazarama_int.api_key), api_secret=str(pazarama_int.api_secret) if pazarama_int.api_secret else None)
-            await asyncio.to_thread(
-                p_adapter.update_product,
-                sku=product.sku,
-                new_price=data.price,
-                new_stock=data.quantity
-            )
+            
+            # Pazarama sadece ürün ekleme servisiyle (upsert) fiyat/stok güncelleyebiliyor
+            import json
+            product_data = {
+                "name": product.name,
+                "description": getattr(product, "description", product.name),
+                "sku": product.sku,
+                "stock": data.quantity,
+                "price": data.price,
+                "images": json.loads(product.images_json) if getattr(product, "images_json", None) else [{"imageurl": "https://via.placeholder.com/500"}]
+            }
+            
+            target_category_id = int(getattr(product, "pazarama_category_id") or 0)
+            target_brand_id = int(getattr(product, "pazarama_brand_id") or 0)
+            
+            if target_category_id != 0 and target_brand_id != 0:
+                await asyncio.to_thread(
+                    p_adapter.create_product,
+                    product_data=product_data,
+                    target_category_id=target_category_id,
+                    target_brand_id=target_brand_id,
+                    vat_rate=20
+                )
+            else:
+                print(f"[Pazarama] Kategori/Marka ID bulunamadığı için atlandı: {product.sku}")
 
     return {"message": "Ürün başarıyla güncellendi"}
 

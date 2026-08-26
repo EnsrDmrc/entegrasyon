@@ -1021,9 +1021,16 @@ class PazaramaAdapter(MarketplaceAdapter):
         
         # Pazarama'nın beklediği images formatı
         pazarama_images = []
-        for img_url in product_data.get("images", []):
-            pazarama_images.append({"imageurl": img_url})
-            
+        for img in product_data.get("images", []):
+            if isinstance(img, dict):
+                img_url = img.get("url") or img.get("imageurl") or img.get("imageUrl")
+                if img_url:
+                    pazarama_images.append({"imageurl": img_url})
+            elif isinstance(img, str):
+                pazarama_images.append({"imageurl": img})
+        
+        if not pazarama_images:
+            pazarama_images.append({"imageurl": "https://via.placeholder.com/500"})
         payload = {
             "products": [
                 {

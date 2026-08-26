@@ -18,6 +18,12 @@ async def lifespan(app: FastAPI):
             await session.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR;"))
             await session.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at TIMESTAMP WITH TIME ZONE;"))
             await session.execute(text("UPDATE users SET is_verified = TRUE WHERE is_verified IS NULL;"))
+            
+            # Pazarama Güncellemeleri
+            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_category_id VARCHAR;"))
+            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_brand_id VARCHAR;"))
+            await session.execute(text("ALTER TABLE products ADD COLUMN images_json VARCHAR;"))
+            
             await session.commit()
         except Exception as e:
             print("Migration (ALTER TABLE) skipped or already applied:", e)

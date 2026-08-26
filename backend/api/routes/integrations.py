@@ -1267,6 +1267,19 @@ async def transfer_product(
                 target_brand_id=data.target_brand_id,
                 vat_rate=data.vat_rate
             )
+            
+            # Ürünün Pazarama metadata'sını kaydet
+            from models.product import Product
+            import json
+            prod_result = await db.execute(select(Product).where(Product.sku == data.sku, Product.tenant_id == current_user.tenant_id))
+            db_product = prod_result.scalars().first()
+            if db_product:
+                db_product.pazarama_category_id = str(data.target_category_id)
+                db_product.pazarama_brand_id = str(data.target_brand_id)
+                db_product.images_json = json.dumps(product_details.get("images", []))
+                db.add(db_product)
+                await db.commit()
+                
             return {"message": "Ürün başarıyla aktarıldı", "details": transfer_result}
         else:
             raise HTTPException(status_code=400, detail="Desteklenmeyen hedef pazaryeri")
