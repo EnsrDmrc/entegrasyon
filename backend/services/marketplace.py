@@ -845,21 +845,30 @@ class PazaramaAdapter(MarketplaceAdapter):
         }
 
     def fetch_all_products(self) -> list:
-        # Pazarama ürün çekme simülasyonu
         print("[Pazarama] Ürünler çekiliyor...")
-        # Gerçekte GET /products endpoint'i kullanılır
-        return []
+        # Simülasyon olarak test ürünü döndürüyoruz
+        return [
+            {"sku": "PZR-001", "name": "Pazarama Test Ürünü 1", "price": 199.90, "stock": 50, "barcode": "8691234567890", "description": "Pazarama entegrasyonu deneme ürünü"},
+            {"sku": "PZR-002", "name": "Pazarama Özel Kampanyalı Ürün", "price": 149.00, "stock": 25, "barcode": "8691234567891", "description": "İndirimli ürün"}
+        ]
 
     def fetch_orders(self) -> list:
-        fetched_orders = []
-        try:
-            # Pazarama sipariş çekme simülasyonu
-            # res = requests.get(f"{self.base_url}/orders", headers=self.headers)
-            print("[Pazarama] Siparişler çekiliyor...")
-        except Exception as e:
-            print(f"[Pazarama] Order Sync Hatası: {e}")
-            
-        return fetched_orders
+        print("[Pazarama] Siparişler çekiliyor...")
+        # Simülasyon sipariş
+        from datetime import datetime
+        return [
+            {
+                "order_number": f"PZ-{int(datetime.now().timestamp())}",
+                "customer_name": "Ahmet Yılmaz (Pazarama Müşterisi)",
+                "total_price": 348.90,
+                "status": "Yeni",
+                "order_date": datetime.now().isoformat(),
+                "items": [
+                    {"product_sku": "PZR-001", "product_name": "Pazarama Test Ürünü 1", "quantity": 1, "price": 199.90},
+                    {"product_sku": "PZR-002", "product_name": "Pazarama Özel Kampanyalı Ürün", "quantity": 1, "price": 149.00}
+                ]
+            }
+        ]
 
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
         try:

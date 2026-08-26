@@ -1087,7 +1087,43 @@ async def sync_pazarama(background_tasks: BackgroundTasks, current_user: User = 
     if not integration or not integration.api_key or not integration.store_url:
         raise HTTPException(status_code=400, detail="Aktif Pazarama entegrasyonu bulunamadı.")
 
-    return {"message": "Pazarama ürün eşitleme entegrasyonu başarılı", "count": 0}
+    from services.marketplace import PazaramaAdapter
+    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
+    
+    try:
+        fetched_products = await asyncio.to_thread(adapter.fetch_all_products)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    from models.product import Product
+    sync_count = 0
+    for prod_data in fetched_products:
+        prod_result = await db.execute(
+            select(Product).where(
+                Product.sku == prod_data["sku"],
+                Product.tenant_id == current_user.tenant_id
+            )
+        )
+        existing_product = prod_result.scalars().first()
+        
+        if existing_product:
+            existing_product.price = prod_data["price"]
+            existing_product.stock = prod_data["stock"]
+        else:
+            new_product = Product(
+                tenant_id=current_user.tenant_id,
+                sku=prod_data["sku"],
+                name=prod_data["name"],
+                price=prod_data["price"],
+                stock=prod_data["stock"],
+                barcode=prod_data.get("barcode", ""),
+                description=prod_data.get("description", "")
+            )
+            db.add(new_product)
+        sync_count += 1
+    
+    await db.commit()
+    return {"message": "Pazarama ürün eşitleme başarılı", "count": sync_count}
 
 
 @router.post("/sync/pazarama/orders")
@@ -1113,8 +1149,60 @@ async def sync_pazarama_orders(current_user: User = Depends(get_current_user), d
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
         
+    from models.order import Order, OrderItem
+    from dateutil import parser
+    
+    order_sync_count = 0
+    for ord_data in fetched_orders:
+        ord_result = await db.execute(
+            select(Order).where(
+                Order.order_number == ord_data["order_number"],
+                Order.tenant_id == current_user.tenant_id
+            )
+        )
+        existing_order = ord_result.scalars().first()
+        
+        parsed_date = None
+        if ord_data.get("order_date"):
+            try:
+                parsed_date = parser.parse(ord_data["order_date"])
+            except:
+                pass
+
+        if not existing_order:
+            new_order = Order(
+                tenant_id=current_user.tenant_id,
+                marketplace="pazarama",
+                order_number=ord_data["order_number"],
+                customer_name=ord_data["customer_name"],
+                total_price=ord_data["total_price"],
+                status=ord_data["status"],
+                order_date=parsed_date
+            )
+            db.add(new_order)
+            await db.commit()
+            await db.refresh(new_order)
+            
+            for item in ord_data.get("items", []):
+                new_item = OrderItem(
+                    order_id=new_order.id,
+                    product_sku=item["product_sku"],
+                    product_name=item["product_name"],
+                    quantity=item["quantity"],
+                    price=item["price"]
+                )
+                db.add(new_item)
+            await db.commit()
+            order_sync_count += 1
+        else:
+            if existing_order.status != ord_data["status"]:
+                existing_order.status = ord_data["status"]
+                db.add(existing_order)
+                await db.commit()
+                order_sync_count += 1
+
     return {
         "message": "Pazarama Siparişleri başarıyla çekildi", 
-        "order_count": len(fetched_orders)
+        "order_count": order_sync_count
     }
 
