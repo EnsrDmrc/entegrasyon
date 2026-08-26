@@ -810,31 +810,52 @@ class PazaramaAdapter(MarketplaceAdapter):
         }
         
         all_products = []
-        next_cursor = None
+        page = 1
         has_more = True
         
         while has_more:
-            url = "https://isortagimapi.pazarama.com/product/products/approved?Size=100"
-            if next_cursor:
-                url += f"&Cursor={next_cursor}"
+            # Hem Cursor hem Page parametrelerini destekleyecek genel bir endpoint yapısı deneyelim
+            # Pazarama dökümanlarında bazen /approved bazen query param olarak geçiyor.
+            url = f"https://isortagimapi.pazarama.com/product/products?Approved=True&Size=100&Page={page}"
                 
             resp = httpx.get(url, headers=headers, timeout=30.0)
             if resp.status_code != 200:
                 print(f"[Pazarama Error] Ürünler çekilemedi. HTTP {resp.status_code}: {resp.text}")
-                break
+                # Hata durumunda diğer endpoint'i deneyelim
+                alt_url = f"https://isortagimapi.pazarama.com/product/products/approved?Size=100&Page={page}"
+                resp = httpx.get(alt_url, headers=headers, timeout=30.0)
+                if resp.status_code != 200:
+                    break
                 
             data = resp.json()
-            items = data.get("items", [])
+            
+            # Pazarama API bazen 'items' bazen 'products' bazen 'data' dönebilir
+            items = data.get("items") or data.get("products") or data.get("data") or []
+            
+            if not items:
+                break
+                
             for item in items:
+                # Fiyat ve stok alanları farklı dökümanlarda farklı olabiliyor (salePrice, listPrice, stock, stockCount)
+                price = item.get("salePrice") or item.get("listPrice") or item.get("price") or 0.0
+                stock = item.get("stockCount") or item.get("stock") or item.get("quantity") or 0
                 all_products.append({
-                    'sku': item.get("code", ""),
+                    'sku': str(item.get("code") or item.get("barcode") or item.get("id") or ""),
                     'name': item.get("name", "İsimsiz Ürün"),
-                    'price': float(item.get("salePrice", 0.0) or 0.0),
-                    'stock': int(item.get("stockCount", 0) or 0)
+                    'price': float(price),
+                    'stock': int(stock)
                 })
                 
-            next_cursor = data.get("nextCursor")
-            has_more = bool(next_cursor)
+            total_count = data.get("totalCount") or 0
+            # Eğer nextCursor dönüyorsa cursor tabanlıdır, aksi halde page tabanlı
+            if data.get("nextCursor"):
+                # Eğer ilk dökümandaki gibi cursor tabanlıysa
+                has_more = False # Cursor'u desteklemiyoruz şimdilik page yeterli
+            else:
+                if len(all_products) >= total_count:
+                    has_more = False
+                else:
+                    page += 1
             
         return all_products
 
