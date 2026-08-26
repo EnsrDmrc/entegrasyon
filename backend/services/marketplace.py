@@ -883,3 +883,50 @@ class PazaramaAdapter(MarketplaceAdapter):
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Pazarama Ürünü", "price": 0.0}
 
+
+
+class PazaramaAdapter(MarketplaceAdapter):
+    def __init__(self, merchant_id: str, api_key: str, api_secret: str = None):
+        self.merchant_id = merchant_id
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.base_url = 'https://isortagimapi.pazarama.com/v1'
+        self.headers = {'Authorization': f'Bearer {self.api_key}'}
+
+    def fetch_all_products(self) -> list:
+        print('[Pazarama] Ürünler çekiliyor...')
+        return [
+            {'sku': 'PZR-001', 'name': 'Pazarama Test Ürünü 1', 'price': 199.90, 'stock': 50, 'barcode': '8691234567890', 'description': 'Pazarama entegrasyonu deneme ürünü'},
+            {'sku': 'PZR-002', 'name': 'Pazarama Özel Kampanyalı Ürün', 'price': 149.00, 'stock': 25, 'barcode': '8691234567891', 'description': 'İndirimli ürün'}
+        ]
+
+    def fetch_orders(self) -> list:
+        print('[Pazarama] Siparişler çekiliyor...')
+        from datetime import datetime
+        return [
+            {
+                'order_number': f'PZ-{int(datetime.now().timestamp())}',
+                'customer_name': 'Ahmet Yılmaz (Pazarama Müşterisi)',
+                'total_price': 348.90,
+                'status': 'Yeni',
+                'order_date': datetime.now().isoformat(),
+                'items': [
+                    {'product_sku': 'PZR-001', 'product_name': 'Pazarama Test Ürünü 1', 'quantity': 1, 'price': 199.90},
+                    {'product_sku': 'PZR-002', 'product_name': 'Pazarama Özel Kampanyalı Ürün', 'quantity': 1, 'price': 149.00}
+                ]
+            }
+        ]
+
+class AmazonAdapter(MarketplaceAdapter):
+    def __init__(self, seller_id: str, refresh_token: str):
+        self.seller_id = seller_id
+        self.refresh_token = refresh_token
+        self.base_url = 'https://sellingpartnerapi-eu.amazon.com'
+
+    def fetch_all_products(self) -> list:
+        print('[Amazon] Ürünler çekiliyor...')
+        return []
+
+    def fetch_orders(self) -> list:
+        print('[Amazon] Siparişler çekiliyor...')
+        return []
