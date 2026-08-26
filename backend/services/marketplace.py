@@ -795,11 +795,19 @@ class PazaramaAdapter(MarketplaceAdapter):
         resp = httpx.post("https://isortagimgiris.pazarama.com/connect/token", headers=headers, data=data, timeout=30.0)
         if resp.status_code == 200:
             resp_json = resp.json()
-            self.token = resp_json.get("access_token")
+            # Pazarama API standart OAuth2 yerine kendi wrapper'ını kullanıyor: {"data": {"accessToken": "..."}}
+            data_obj = resp_json.get("data", {})
+            if isinstance(data_obj, dict):
+                self.token = data_obj.get("accessToken") or data_obj.get("access_token")
+            
+            # Fallback for standard OAuth2
             if not self.token:
-                raise Exception(f"Pazarama token alınamadı (Yanıt 200 ama token yok): {resp.text}")
+                self.token = resp_json.get("access_token") or resp_json.get("accessToken")
+                
+            if not self.token:
+                raise Exception(f"Pazarama token alınamadı (Yanıt 200 ama token yok): {resp.text[:300]}")
         else:
-            raise Exception(f"Pazarama token alınamadı. HTTP {resp.status_code}: {resp.text}")
+            raise Exception(f"Pazarama token alınamadı. HTTP {resp.status_code}: {resp.text[:300]}")
 
     def fetch_all_products(self) -> list:
         print('[Pazarama] Ürünler gerçek API\'den çekiliyor...')
