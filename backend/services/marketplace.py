@@ -954,45 +954,8 @@ class PazaramaAdapter(MarketplaceAdapter):
             }
         ]
 
-    def get_product_details(self, sku: str) -> dict:
-        print(f"[Pazarama] Ürün detayı getiriliyor: {sku}")
-        if not self.token:
-            self._get_token()
-        import httpx
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Accept": "application/json"
-        }
-        # Hem approved hem unapproved kontrolü
-        urls = [
-            f"https://isortagimapi.pazarama.com/product/products/approved?Code={sku}",
-            f"https://isortagimapi.pazarama.com/product/products/unapproved?Code={sku}"
-        ]
-        
-        for url in urls:
-            try:
-                resp = httpx.get(url, headers=headers, timeout=15.0)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    items = data.get("items") or data.get("products") or data.get("data")
-                    if items:
-                        for item in items:
-                            code = str(item.get("code") or item.get("barcode") or item.get("id"))
-                            if sku in code:
-                                return item
-            except Exception as e:
-                print(f"[Pazarama Fetch Details Error] {e}")
-        return {}
-
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
         print(f"[Pazarama] Ürün güncelleniyor: {sku}")
-        
-        # Seçenek 2: Önce ürünü çek, sonra Upsert yap
-        existing_item = self.get_product_details(sku)
-        if not existing_item:
-            print(f"[Pazarama Update] Ürün Pazarama'da bulunamadı: {sku}")
-            return False
-            
         if not self.token:
             self._get_token()
             
@@ -1003,60 +966,44 @@ class PazaramaAdapter(MarketplaceAdapter):
             "Accept": "application/json"
         }
         
-        # Mevcut değerleri alıp sadece price/stock değiştirelim
-        name = existing_item.get("name") or existing_item.get("displayName") or "Güncellenen Ürün"
-        desc = existing_item.get("description") or "Açıklama bulunmuyor."
-        brand_id = str(existing_item.get("brandId") or "0")
-        category_id = str(existing_item.get("categoryId") or "0")
-        desi = existing_item.get("desi") or 1
-        vat_rate = existing_item.get("vatRate") or 20
+        success = True
         
-        # Resimleri formatlayalım
-        images = existing_item.get("images") or [{"imageurl": "https://via.placeholder.com/500"}]
-        formatted_images = []
-        for img in images:
-            if isinstance(img, dict) and "url" in img:
-                formatted_images.append({"imageurl": img["url"]})
-            elif isinstance(img, dict) and "imageurl" in img:
-                formatted_images.append(img)
-            elif isinstance(img, str):
-                formatted_images.append({"imageurl": img})
-        if not formatted_images:
-            formatted_images.append({"imageurl": "https://via.placeholder.com/500"})
-            
-        current_price = float(existing_item.get("salePrice") or existing_item.get("listPrice") or 0.0)
-        current_stock = int(existing_item.get("stockCount") or existing_item.get("stock") or 0)
-        
-        final_price = float(new_price) if new_price is not None else current_price
-        final_stock = int(new_stock) if new_stock is not None else current_stock
-        
-        payload = {
-            "products": [
+        # Sadece Stok Güncellemesi
+        if new_stock is not None:
+            stock_payload = [
                 {
-                    "Name": name,
-                    "DisplayName": name,
-                    "Description": desc,
-                    "BrandId": brand_id,
-                    "CategoryId": category_id,
                     "Code": sku,
-                    "GroupCode": sku,
-                    "StockCount": final_stock,
-                    "VatRate": vat_rate,
-                    "ListPrice": final_price,
-                    "SalePrice": final_price,
-                    "Desi": desi,
-                    "images": formatted_images
+                    "StockCount": int(new_stock)
                 }
             ]
-        }
-        
-        try:
-            resp = httpx.post("https://isortagimapi.pazarama.com/product/create", json=payload, headers=headers, timeout=15.0)
-            print(f"[Pazarama Update Upsert] {resp.status_code} - {resp.text[:200]}")
-            return resp.status_code in [200, 201, 202]
-        except Exception as e:
-            print(f"[Pazarama Update Error] {e}")
-            return False
+            try:
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/updateStock", json=stock_payload, headers=headers, timeout=15.0)
+                print(f"[Pazarama UpdateStock] {resp.status_code} - {resp.text[:200]}")
+                if resp.status_code not in [200, 201, 202]:
+                    success = False
+            except Exception as e:
+                print(f"[Pazarama UpdateStock Error] {e}")
+                success = False
+                
+        # Sadece Fiyat Güncellemesi
+        if new_price is not None:
+            price_payload = [
+                {
+                    "Code": sku,
+                    "ListPrice": float(new_price),
+                    "SalePrice": float(new_price)
+                }
+            ]
+            try:
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/updatePrice", json=price_payload, headers=headers, timeout=15.0)
+                print(f"[Pazarama UpdatePrice] {resp.status_code} - {resp.text[:200]}")
+                if resp.status_code not in [200, 201, 202]:
+                    success = False
+            except Exception as e:
+                print(f"[Pazarama UpdatePrice Error] {e}")
+                success = False
+
+        return success
 
     def create_product(self, product_data: dict, target_category_id: int, target_brand_id: int, vat_rate: int) -> dict:
         if not self.token:
