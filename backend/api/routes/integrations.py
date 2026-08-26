@@ -362,7 +362,7 @@ async def sync_pazarama(background_tasks: BackgroundTasks, current_user: User = 
     from services.marketplace import PazaramaAdapter
     adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
     try:
-        fetched_items = await asyncio.to_thread(adapter.fetch_products)
+        fetched_items = await asyncio.to_thread(adapter.fetch_all_products)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
