@@ -962,14 +962,25 @@ export default function SettingsPage() {
                       required
                     />
                   </div>
-                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="input-label">API Anahtarı (Key / Token)</label>
+                  <div className="input-group" style={{ marginBottom: '1rem' }}>
+                    <label className="input-label">Client ID (API Key)</label>
                     <input 
                       type="text" 
                       className="input-field" 
-                      placeholder="API Key veya Token" 
+                      placeholder="Client ID (API Key)" 
                       value={pazaramaData.api_key}
                       onChange={(e) => setPazaramaData({...pazaramaData, api_key: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Client Secret</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Client Secret" 
+                      value={pazaramaData.api_secret}
+                      onChange={(e) => setPazaramaData({...pazaramaData, api_secret: e.target.value})}
                       required
                     />
                   </div>
