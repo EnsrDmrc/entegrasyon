@@ -13,20 +13,34 @@ async def lifespan(app: FastAPI):
     
     # Otomatik veritabanı göçü (Sütun eklemeleri)
     async with AsyncSessionLocal() as session:
+        # Users tablosu
         try:
             await session.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT TRUE;"))
             await session.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR;"))
             await session.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at TIMESTAMP WITH TIME ZONE;"))
             await session.execute(text("UPDATE users SET is_verified = TRUE WHERE is_verified IS NULL;"))
-            
-            # Pazarama Güncellemeleri
-            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_category_id VARCHAR;"))
-            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_brand_id VARCHAR;"))
-            await session.execute(text("ALTER TABLE products ADD COLUMN images_json VARCHAR;"))
-            
             await session.commit()
         except Exception as e:
-            print("Migration (ALTER TABLE) skipped or already applied:", e)
+            await session.rollback()
+            
+        # Products tablosu
+        try:
+            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_category_id VARCHAR;"))
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+
+        try:
+            await session.execute(text("ALTER TABLE products ADD COLUMN pazarama_brand_id VARCHAR;"))
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+
+        try:
+            await session.execute(text("ALTER TABLE products ADD COLUMN images_json VARCHAR;"))
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
 
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
     task = asyncio.create_task(order_patrol_loop())
