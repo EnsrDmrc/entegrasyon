@@ -15,6 +15,7 @@ class MarketplaceIntegration(Base):
     # Şifreli/Gizli bilgiler (API Keys vs.)
     api_key = Column(String, nullable=True)
     api_secret = Column(String, nullable=True)
+    refresh_token = Column(String, nullable=True)
     store_url = Column(String, nullable=True) # Shopify için "magaza.myshopify.com"
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

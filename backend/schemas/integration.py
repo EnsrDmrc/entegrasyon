@@ -5,6 +5,7 @@ class IntegrationCreate(BaseModel):
     marketplace_name: str
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
+    refresh_token: Optional[str] = None
     store_url: Optional[str] = None
     is_active: bool = True
 
@@ -14,6 +15,7 @@ class IntegrationResponse(BaseModel):
     store_url: Optional[str] = None
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
+    refresh_token: Optional[str] = None
     is_active: bool
 
     class Config:

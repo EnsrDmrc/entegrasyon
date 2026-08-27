@@ -24,6 +24,8 @@ export default function SettingsPage() {
   
   const [amazonData, setAmazonData] = useState({
     seller_id: '',
+    client_id: '',
+    client_secret: '',
     refresh_token: '',
     region: 'EU'
   });
@@ -81,9 +83,22 @@ export default function SettingsPage() {
             setShopifyData({ store_url: shopify.store_url || '', api_key: '********' }); // Şifreyi gizli göster
           }
           
-          const amazon = data.find(i => i.marketplace_name === 'amazon');
+          const amazon = data.find((i: any) => i.marketplace_name === 'amazon');
           if (amazon) {
-            setAmazonData({ seller_id: amazon.store_url || '', refresh_token: '********', region: amazon.api_secret || 'EU' });
+            let region = 'EU';
+            let seller_id = amazon.store_url || '';
+            if (seller_id.includes('|')) {
+               const parts = seller_id.split('|');
+               region = parts[0];
+               seller_id = parts[1];
+            }
+            setAmazonData({ 
+              seller_id: seller_id, 
+              client_id: amazon.api_key ? '********' : '',
+              client_secret: amazon.api_secret ? '********' : '',
+              refresh_token: amazon.refresh_token ? '********' : '', 
+              region: region 
+            });
           }
           
           const pazarama = data.find((i: any) => i.marketplace_name === 'pazarama');
@@ -282,9 +297,10 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           marketplace_name: 'amazon',
-          store_url: amazonData.seller_id,
-          api_key: amazonData.refresh_token.includes('*') ? undefined : amazonData.refresh_token,
-          api_secret: amazonData.region,
+          store_url: `${amazonData.region}|${amazonData.seller_id}`,
+          api_key: amazonData.client_id.includes('*') ? undefined : amazonData.client_id,
+          api_secret: amazonData.client_secret.includes('*') ? undefined : amazonData.client_secret,
+          refresh_token: amazonData.refresh_token.includes('*') ? undefined : amazonData.refresh_token,
           is_active: true
         })
       });
@@ -870,7 +886,29 @@ export default function SettingsPage() {
                 )}
 
                 <form onSubmit={handleSaveAmazon}>
-                  <div className="input-group">
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Client ID</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="amzn1.application-oa2-client..." 
+                      value={amazonData.client_id}
+                      onChange={(e) => setAmazonData({...amazonData, client_id: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="input-label">Client Secret</label>
+                    <input 
+                      type="password" 
+                      className="input-field" 
+                      placeholder="Gizli Anahtarınız..." 
+                      value={amazonData.client_secret}
+                      onChange={(e) => setAmazonData({...amazonData, client_secret: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
                     <label className="input-label">Seller ID (Merchant ID)</label>
                     <input 
                       type="text" 
