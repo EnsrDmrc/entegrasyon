@@ -151,10 +151,10 @@ async def update_product(
                 "images": json.loads(product.images_json) if getattr(product, "images_json", None) else [{"imageurl": "https://via.placeholder.com/500"}]
             }
             
-            target_category_id = int(getattr(product, "pazarama_category_id") or 0)
-            target_brand_id = int(getattr(product, "pazarama_brand_id") or 0)
+            target_category_id = str(getattr(product, "pazarama_category_id") or "")
+            target_brand_id = str(getattr(product, "pazarama_brand_id") or "")
             
-            if target_category_id != 0 and target_brand_id != 0:
+            if target_category_id and target_category_id != "0" and target_brand_id and target_brand_id != "0":
                 await asyncio.to_thread(
                     p_adapter.create_product,
                     product_data=product_data,

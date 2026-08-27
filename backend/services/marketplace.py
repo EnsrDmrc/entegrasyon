@@ -1011,7 +1011,7 @@ class PazaramaAdapter(MarketplaceAdapter):
 
         return success
 
-    def create_product(self, product_data: dict, target_category_id: int, target_brand_id: int, vat_rate: int) -> dict:
+    def create_product(self, product_data: dict, target_category_id: str, target_brand_id: str, vat_rate: int) -> dict:
         if not self.token:
             self._get_token()
             
@@ -1040,8 +1040,8 @@ class PazaramaAdapter(MarketplaceAdapter):
                     "Name": product_data.get("name")[:100],
                     "DisplayName": product_data.get("name")[:100],
                     "Description": product_data.get("description", "Açıklama bulunmuyor.") or "Açıklama bulunmuyor.",
-                    "BrandId": int(target_brand_id),
-                    "CategoryId": int(target_category_id),
+                    "BrandId": str(target_brand_id),
+                    "CategoryId": str(target_category_id),
                     "Code": str(product_data.get("sku")),
                     "GroupCode": str(product_data.get("sku")),
                     "StockCount": int(product_data.get("stock", 0)),
