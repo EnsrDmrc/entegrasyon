@@ -167,6 +167,55 @@ async def update_product(
 
     return {"message": "Ürün başarıyla güncellendi"}
 
+@router.get("/debug-pazarama")
+async def debug_pazarama(sku: str, stock: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.marketplace_name == "pazarama", MarketplaceIntegration.is_active == True))
+    p_int = result.scalars().first()
+    if not p_int: return {"error": "no pazarama int"}
+    from services.marketplace import PazaramaAdapter
+    adapter = PazaramaAdapter(merchant_id=str(p_int.store_url), api_key=str(p_int.api_key), api_secret=str(p_int.api_secret))
+    adapter._get_token()
+    import httpx
+    headers = {"Authorization": f"Bearer {adapter.token}", "Accept": "application/json"}
+    
+    results = {}
+    
+    # 1. Array payload
+    try:
+        r1 = httpx.post("https://isortagimapi.pazarama.com/product/updateStock", headers=headers, json=[{"Code": sku, "StockCount": stock}], timeout=10.0)
+        results["format1"] = f"{r1.status_code} - {r1.text[:200]}"
+    except Exception as e: results["format1"] = str(e)
+    
+    # 2. Object payload
+    try:
+        r2 = httpx.post("https://isortagimapi.pazarama.com/product/updateStock", headers=headers, json={"Code": sku, "StockCount": stock}, timeout=10.0)
+        results["format2"] = f"{r2.status_code} - {r2.text[:200]}"
+    except Exception as e: results["format2"] = str(e)
+    
+    # 3. Uppercase endpoint
+    try:
+        r3 = httpx.post("https://isortagimapi.pazarama.com/Product/UpdateStock", headers=headers, json=[{"Code": sku, "StockCount": stock}], timeout=10.0)
+        results["format3"] = f"{r3.status_code} - {r3.text[:200]}"
+    except Exception as e: results["format3"] = str(e)
+    
+    # 4. products wrapper
+    try:
+        r4 = httpx.post("https://isortagimapi.pazarama.com/product/updateStock", headers=headers, json={"products": [{"Code": sku, "StockCount": stock}]}, timeout=10.0)
+        results["format4"] = f"{r4.status_code} - {r4.text[:200]}"
+    except Exception as e: results["format4"] = str(e)
+
+    # 5. Get Products to check if sku exists
+    try:
+        r5 = httpx.get("https://isortagimapi.pazarama.com/product/products?Approved=True&Size=5&Page=1", headers=headers, timeout=10.0)
+        if r5.status_code != 200:
+            r5 = httpx.get("https://isortagimapi.pazarama.com/product/products/approved?Size=5&Page=1", headers=headers, timeout=10.0)
+        data = r5.json()
+        items = data.get("items") or data.get("products") or data.get("data") or []
+        results["first_sku"] = items[0].get("code") if items else "NONE"
+    except Exception as e: results["first_sku_error"] = str(e)
+    
+    return results
+
 from schemas.order import OrderSchema
 
 @router.get("/me/orders", response_model=List[OrderSchema])
