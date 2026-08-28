@@ -64,6 +64,16 @@ async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, 
             except Exception as e:
                 print(f"[Price Sync Error] Failed to push to {integration.marketplace_name}: {e}")
 
+@router.get("/active")
+async def get_active_integrations(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Aktif entegrasyonları döndürür."""
+    result = await db.execute(
+        select(MarketplaceIntegration)
+        .where(MarketplaceIntegration.tenant_id == current_user.tenant_id, MarketplaceIntegration.is_active == True)
+    )
+    integrations = result.scalars().all()
+    return [{"marketplace_name": i.marketplace_name} for i in integrations]
+
 
 @router.post("/sync/shopify")
 async def sync_shopify(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -1388,6 +1398,128 @@ async def transfer_product(
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Aktarım başarısız: {str(e)}")
+
+from pydantic import BaseModel
+class BulkTransferRequest(BaseModel):
+    source_marketplace: str
+    target_marketplace: str
+
+@router.post("/bulk-transfer")
+async def bulk_transfer_products(
+    data: BulkTransferRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    import difflib
+    from services.marketplace import N11Adapter, PazaramaAdapter, ShopifyAdapter
+    
+    # 1. Entegrasyonları bul
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.tenant_id == current_user.tenant_id))
+    integrations = result.scalars().all()
+    
+    source_int = next((i for i in integrations if i.marketplace_name == data.source_marketplace and i.is_active), None)
+    target_int = next((i for i in integrations if i.marketplace_name == data.target_marketplace and i.is_active), None)
+    
+    if not source_int:
+        raise HTTPException(status_code=400, detail=f"Kaynak pazaryeri ({data.source_marketplace}) bulunamadı.")
+    if not target_int:
+        raise HTTPException(status_code=400, detail=f"Hedef pazaryeri ({data.target_marketplace}) bulunamadı.")
+        
+    try:
+        # 2. Kaynak ürünleri çek
+        source_products = []
+        source_adapter = None
+        if data.source_marketplace == "n11":
+            source_adapter = N11Adapter(api_key=str(source_int.api_key), api_secret=str(source_int.api_secret))
+            source_products = await asyncio.to_thread(source_adapter.fetch_all_products)
+        elif data.source_marketplace == "shopify":
+            source_adapter = ShopifyAdapter(api_key=str(source_int.api_key), store_url=str(source_int.store_url))
+            source_products = await asyncio.to_thread(source_adapter.fetch_all_products)
+        else:
+            raise HTTPException(status_code=400, detail="Desteklenmeyen kaynak pazaryeri")
+            
+        if not source_products:
+            return {"message": "Kaynak pazaryerinde aktarılacak ürün bulunamadı.", "results": []}
+
+        # 3. Hedef Pazarama ise Kategori ve Markaları RAM'e al
+        target_categories = []
+        target_brands = []
+        target_adapter = None
+        
+        if data.target_marketplace == "pazarama":
+            target_adapter = PazaramaAdapter(merchant_id=str(target_int.store_url), api_key=str(target_int.api_key), api_secret=str(target_int.api_secret))
+            cat_res = await target_adapter.get_categories()
+            if cat_res.get("isSuccess"):
+                target_categories = cat_res.get("data", [])
+            brand_res = await target_adapter.get_brands()
+            if brand_res.get("isSuccess"):
+                target_brands = brand_res.get("data", [])
+        else:
+            raise HTTPException(status_code=400, detail="Toplu aktarım şimdilik sadece Pazarama hedefine desteklenmektedir.")
+            
+        cat_names = [c.get("name", "").lower() for c in target_categories]
+        brand_names = [b.get("name", "").lower() for b in target_brands]
+        
+        transfer_results = []
+        success_count = 0
+        
+        # 4. Aktarım Döngüsü
+        for sp in source_products:
+            sku = sp.get("sku")
+            if not sku:
+                continue
+                
+            try:
+                # Gerçek ürün detayını kaynak adaptörden çek
+                details = await asyncio.to_thread(source_adapter.get_product_details, sku)
+                source_cat = details.get("category_name", "")
+                source_brand = details.get("brand_name", "")
+                
+                # Kategori eşleştirme (Fuzzy Match)
+                target_cat_id = None
+                if source_cat:
+                    matches = difflib.get_close_matches(source_cat.lower(), cat_names, n=1, cutoff=0.5)
+                    if matches:
+                        match_name = matches[0]
+                        # ID'yi bul
+                        target_cat_id = next((c.get("id") for c in target_categories if c.get("name", "").lower() == match_name), None)
+                
+                # Marka eşleştirme
+                target_brand_id = None
+                if source_brand:
+                    b_matches = difflib.get_close_matches(source_brand.lower(), brand_names, n=1, cutoff=0.5)
+                    if b_matches:
+                        b_match = b_matches[0]
+                        target_brand_id = next((b.get("id") for b in target_brands if b.get("name", "").lower() == b_match), None)
+                        
+                # Eğer bulunamadıysa Pazarama için varsayılan bir ID atamayı deneyebiliriz, şimdilik hata verdiriyoruz.
+                if not target_cat_id or not target_brand_id:
+                    transfer_results.append({
+                        "sku": sku, 
+                        "name": details.get("name"), 
+                        "status": "error", 
+                        "reason": f"Kategori veya Marka eşleşmedi. (Kaynak Cat: {source_cat}, Brand: {source_brand})"
+                    })
+                    continue
+                    
+                # Hedefe gönder
+                res = await asyncio.to_thread(target_adapter.create_product, details, target_cat_id, target_brand_id, 20)
+                
+                if res.get("isSuccess"):
+                    success_count += 1
+                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "success", "reason": "Başarılı"})
+                else:
+                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "error", "reason": str(res.get("messages", "Bilinmeyen hata"))})
+                    
+            except Exception as e:
+                transfer_results.append({"sku": sku, "name": sp.get("name"), "status": "error", "reason": str(e)})
+                
+        return {
+            "message": f"{len(source_products)} üründen {success_count} tanesi başarıyla aktarıldı.",
+            "results": transfer_results
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/pazarama/categories")
 async def get_pazarama_categories(

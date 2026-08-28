@@ -99,13 +99,26 @@ class ShopifyAdapter(MarketplaceAdapter):
     def get_product_details(self, sku: str) -> dict:
         try:
             with httpx.Client() as client:
+                # Query products by SKU using GraphQL or just find the variant with that SKU in REST
                 response = client.get(f"{self.base_url}/products.json", headers=self.headers)
                 if response.status_code == 200:
                     data = response.json()
-                    return {"sku": sku, "name": "Shopify'dan Çekilen Ürün", "price": 100.0}
+                    for product in data.get("products", []):
+                        for variant in product.get("variants", []):
+                            if variant.get("sku") == sku:
+                                images = [img.get("src") for img in product.get("images", [])] if product.get("images") else []
+                                return {
+                                    "sku": sku, 
+                                    "name": product.get("title", ""), 
+                                    "description": product.get("body_html", ""),
+                                    "price": float(variant.get("price", 0.0)),
+                                    "images": images,
+                                    "category_name": product.get("product_type", ""),
+                                    "brand_name": product.get("vendor", "")
+                                }
         except Exception as e:
             print(f"[Shopify] API Hatası: {e}")
-        return {"sku": sku, "name": "Bilinmeyen Ürün", "price": 0.0}
+        return {"sku": sku, "name": "Bilinmeyen Ürün", "price": 0.0, "category_name": "", "brand_name": ""}
 
     def fetch_all_products(self) -> list:
         """Shopify'dan tüm ürünleri ve varyantları çeker (sayfalandırma destekli)."""
@@ -237,6 +250,13 @@ class N11Adapter(MarketplaceAdapter):
             if hasattr(prod, 'description'):
                 description = prod.description
                 
+            brand_name = ""
+            if hasattr(prod, 'attributes') and prod.attributes and hasattr(prod.attributes, 'attribute'):
+                for attr in prod.attributes.attribute:
+                    if hasattr(attr, 'name') and attr.name.lower() == 'marka':
+                        brand_name = attr.value
+                        break
+                
             return {
                 "sku": sku,
                 "name": prod.title,
@@ -244,6 +264,8 @@ class N11Adapter(MarketplaceAdapter):
                 "price": float(prod.price) if prod.price else 0.0,
                 "images": images,
                 "category_id": prod.category.id if hasattr(prod, 'category') and prod.category else None,
+                "category_name": prod.category.name if hasattr(prod, 'category') and hasattr(prod.category, 'name') else "",
+                "brand_name": brand_name
             }
         except Exception as e:
             raise Exception(f"N11'den {sku} kodlu ürün detayları alınırken hata oluştu: {str(e)}")
