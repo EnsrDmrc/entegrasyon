@@ -22,12 +22,14 @@ async def process_tenant_orders(session, tenant_id: int):
     shopify_int = next((i for i in integrations if i.marketplace_name == 'shopify'), None)
     hepsiburada_int = next((i for i in integrations if i.marketplace_name == 'hepsiburada'), None)
     trendyol_int = next((i for i in integrations if i.marketplace_name == 'trendyol'), None)
+    amazon_int = next((i for i in integrations if i.marketplace_name == 'amazon'), None)
     
     fetched_orders = []
     n11_adapter = None
     shopify_adapter = None
     hepsiburada_adapter = None
     trendyol_adapter = None
+    amazon_adapter = None
     
     try:
         # Fetch N11 orders
@@ -55,7 +57,6 @@ async def process_tenant_orders(session, tenant_id: int):
         # Fetch Hepsiburada orders
         from services.marketplace import HepsiburadaAdapter
         if hepsiburada_int and hepsiburada_int.api_key and hepsiburada_int.store_url:
-            # api_key -> API Şifresi, store_url -> Merchant ID
             hepsiburada_adapter = HepsiburadaAdapter(merchant_id=str(hepsiburada_int.store_url), api_key=str(hepsiburada_int.api_key))
             hb_orders = await asyncio.to_thread(hepsiburada_adapter.fetch_orders)
             for o in hb_orders:
@@ -75,6 +76,23 @@ async def process_tenant_orders(session, tenant_id: int):
             fetched_orders.extend(ty_orders)
     except Exception as e:
         print(f"[Patrol] Trendyol Order fetch failed for tenant {tenant_id}: {e}")
+
+    try:
+        # Fetch Amazon orders
+        from services.marketplace import AmazonAdapter
+        if amazon_int and amazon_int.store_url and amazon_int.refresh_token:
+            amazon_adapter = AmazonAdapter(
+                seller_id=str(amazon_int.store_url), 
+                refresh_token=str(amazon_int.refresh_token),
+                lwa_client_id=str(amazon_int.api_key) if amazon_int.api_key else None,
+                lwa_client_secret=str(amazon_int.api_secret) if amazon_int.api_secret else None
+            )
+            amz_orders = await asyncio.to_thread(amazon_adapter.fetch_orders)
+            for o in amz_orders:
+                o["marketplace"] = "amazon"
+            fetched_orders.extend(amz_orders)
+    except Exception as e:
+        print(f"[Patrol] Amazon Order fetch failed for tenant {tenant_id}: {e}")
     
     for ord_data in fetched_orders:
         order_number = ord_data.get("order_number")
@@ -175,6 +193,10 @@ async def process_tenant_orders(session, tenant_id: int):
             # Trendyol'a it
             if trendyol_adapter:
                 await asyncio.to_thread(trendyol_adapter.update_product, sku, new_stock=new_stock)
+
+            # Amazon'a it
+            if amazon_adapter:
+                await asyncio.to_thread(amazon_adapter.update_product, sku, new_stock=new_stock)
 
 async def order_patrol_loop():
     print("[Patrol] Sipariş Devriyesi başlatıldı! Her 1 dakikada bir çalışacak.")

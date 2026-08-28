@@ -1069,38 +1069,159 @@ class AmazonAdapter(MarketplaceAdapter):
     def __init__(self, seller_id: str, refresh_token: str, region: str = "EU", lwa_client_id: str = None, lwa_client_secret: str = None):
         self.seller_id = seller_id
         self.refresh_token = refresh_token
-        self.region = region
+        
+        # Region ayırma mantığı
+        if "|" in self.seller_id:
+            parts = self.seller_id.split("|")
+            self.region = parts[0]
+            self.seller_id = parts[1]
+        else:
+            self.region = region
+            
         self.lwa_client_id = lwa_client_id
         self.lwa_client_secret = lwa_client_secret
+        self._access_token = None
+        
+        # Region mapping
+        regions = {
+            "EU": "https://sellingpartnerapi-eu.amazon.com",
+            "NA": "https://sellingpartnerapi-na.amazon.com",
+            "FE": "https://sellingpartnerapi-fe.amazon.com"
+        }
+        self.base_url = regions.get(self.region, "https://sellingpartnerapi-eu.amazon.com")
+        self.marketplace_id = "A33AVAJ2PDY396" # TR Marketplace ID (Şimdilik varsayılan TR)
+
+    def _get_token(self):
+        if self._access_token:
+            return self._access_token
+            
+        import httpx
+        url = "https://api.amazon.com/auth/o2/token"
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": self.refresh_token,
+            "client_id": self.lwa_client_id,
+            "client_secret": self.lwa_client_secret
+        }
+        resp = httpx.post(url, data=payload, timeout=15.0)
+        if resp.status_code != 200:
+            raise Exception(f"Amazon yetkilendirme hatası: {resp.text}")
+            
+        self._access_token = resp.json().get("access_token")
+        return self._access_token
 
     def fetch_all_products(self) -> list:
-        print('[Amazon] Ürünler çekiliyor (Simülasyon)...')
-        return [
-            {'sku': 'AMZ-001', 'name': 'Amazon Test Ürünü 1', 'price': 299.90, 'stock': 100},
-            {'sku': 'AMZ-002', 'name': 'Amazon Kampanyalı Ürün', 'price': 249.00, 'stock': 50}
-        ]
+        # Gerçek senaryoda Reports API ile GET_MERCHANT_LISTINGS_ALL_DATA raporu oluşturulup asenkron beklenir.
+        # Basitlik ve hız adına şimdilik boş dönüyoruz veya sadece elimizdeki SKU'yu get_product_details ile çekeriz.
+        # Test amaçlı manuel olarak hata fırlatmıyoruz, boş liste dönüyoruz.
+        print('[Amazon] Ürünler çekiliyor... (Rapor API entegrasyonu gerektirir)')
+        return []
 
     def fetch_orders(self) -> list:
-        print('[Amazon] Siparişler çekiliyor (Simülasyon)...')
-        from datetime import datetime
-        return [
-            {
-                'order_number': f'AMZ-{int(datetime.now().timestamp())}',
-                'customer_name': 'Ayşe Kaya (Amazon Müşterisi)',
-                'total_price': 548.90,
-                'status': 'Yeni',
-                'order_date': datetime.now().isoformat(),
-                'items': [
-                    {'product_sku': 'AMZ-001', 'product_name': 'Amazon Test Ürünü 1', 'quantity': 1, 'price': 299.90},
-                    {'product_sku': 'AMZ-002', 'product_name': 'Amazon Kampanyalı Ürün', 'quantity': 1, 'price': 249.00}
-                ]
-            }
-        ]
+        import httpx
+        from datetime import datetime, timedelta
+        
+        token = self._get_token()
+        headers = {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json"
+        }
+        
+        created_after = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
+        url = f"{self.base_url}/orders/v0/orders?MarketplaceIds={self.marketplace_id}&CreatedAfter={created_after}"
+        
+        try:
+            resp = httpx.get(url, headers=headers, timeout=20.0)
+            if resp.status_code != 200:
+                print(f"[Amazon] Sipariş çekme hatası: {resp.text}")
+                return []
+                
+            orders_data = resp.json().get("payload", {}).get("Orders", [])
+            results = []
+            
+            for o in orders_data:
+                # Sipariş detaylarını almak için
+                order_id = o.get("AmazonOrderId")
+                items_url = f"{self.base_url}/orders/v0/orders/{order_id}/orderItems"
+                items_resp = httpx.get(items_url, headers=headers, timeout=15.0)
+                
+                order_items = []
+                if items_resp.status_code == 200:
+                    for i in items_resp.json().get("payload", {}).get("OrderItems", []):
+                        order_items.append({
+                            "product_sku": i.get("SellerSKU", "AMZ-UNKNOWN"),
+                            "product_name": i.get("Title", ""),
+                            "quantity": i.get("QuantityOrdered", 1),
+                            "price": float(i.get("ItemPrice", {}).get("Amount", 0.0))
+                        })
+                
+                results.append({
+                    "order_number": order_id,
+                    "customer_name": o.get("BuyerInfo", {}).get("BuyerName", "Amazon Müşterisi"),
+                    "total_price": float(o.get("OrderTotal", {}).get("Amount", 0.0)) if o.get("OrderTotal") else 0.0,
+                    "status": o.get("OrderStatus", "Pending"),
+                    "order_date": o.get("PurchaseDate"),
+                    "items": order_items
+                })
+                
+            return results
+        except Exception as e:
+            print(f"[Amazon] Hata (fetch_orders): {e}")
+            return []
 
     def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
-        print(f"[Amazon] Ürün güncelleniyor: {sku}")
-        return True
+        try:
+            import httpx
+            token = self._get_token()
+            headers = {
+                "x-amz-access-token": token,
+                "Content-Type": "application/json"
+            }
+            
+            url = f"{self.base_url}/listings/2021-08-01/items/{self.seller_id}/{sku}?marketplaceIds={self.marketplace_id}"
+            
+            patches = []
+            if new_price is not None:
+                patches.append({
+                    "op": "replace",
+                    "path": "/purchasable_offer/1/our_price",
+                    "value": [
+                        {
+                            "marketplace_id": self.marketplace_id,
+                            "currency": "TRY",
+                            "amount": float(new_price)
+                        }
+                    ]
+                })
+            if new_stock is not None:
+                patches.append({
+                    "op": "replace",
+                    "path": "/fulfillment_availability/1/quantity",
+                    "value": [
+                        {
+                            "fulfillment_channel_code": "DEFAULT",
+                            "quantity": int(new_stock)
+                        }
+                    ]
+                })
+            
+            if not patches:
+                return True
+                
+            payload = {
+                "productType": "PRODUCT",
+                "patches": patches
+            }
+            
+            resp = httpx.patch(url, headers=headers, json=payload, timeout=15.0)
+            print(f"[Amazon] PATCH sonucu ({sku}): {resp.status_code} - {resp.text}")
+            
+            if resp.status_code in (200, 201, 202, 204):
+                return True
+            return False
+        except Exception as e:
+            print(f"[Amazon] Fiyat/Stok güncelleme hatası ({sku}): {e}")
+            return False
         
     def get_product_details(self, sku: str) -> dict:
-        print(f"[Amazon] Ürün detayı getiriliyor: {sku}")
         return {}
