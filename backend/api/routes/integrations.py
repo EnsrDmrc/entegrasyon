@@ -1662,7 +1662,7 @@ async def bulk_transfer_products(
                     if res.get("isSuccess") or res.get("success"):
                         success_count += len(batch)
                         for p in batch:
-                            transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "success", "reason": "Başarılı (Bulk)"})
+                            transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "success", "reason": f"Başarılı (Bulk) - {str(res.get('data'))[:300]}"})
                     else:
                         for p in batch:
                             transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "error", "reason": str(res.get("messages") or res.get("message") or "Bilinmeyen Bulk Hatası")})
