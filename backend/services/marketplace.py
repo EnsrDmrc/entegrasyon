@@ -1113,6 +1113,39 @@ class PazaramaAdapter(MarketplaceAdapter):
         except Exception as e:
             raise Exception(f"Pazarama'ya ürün aktarılırken hata oluştu: {str(e)}")
 
+    def create_products_bulk(self, products_payload: list) -> dict:
+        if not self.token:
+            self._get_token()
+            
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        payload = {
+            "products": products_payload
+        }
+        
+        try:
+            import time
+            max_retries = 3
+            for attempt in range(max_retries):
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/create", headers=headers, json=payload, timeout=60.0)
+                if resp.status_code == 429:
+                    if attempt < max_retries - 1:
+                        time.sleep(3.0)
+                        continue
+                
+                if resp.status_code not in (200, 201):
+                    raise Exception(f"Pazarama Toplu Ürün Oluşturma Hatası (HTTP {resp.status_code}): {resp.text[:500]}")
+                    
+                resp_data = resp.json()
+                return {"success": True, "message": f"{len(products_payload)} adet ürün başarıyla aktarıldı.", "data": resp_data}
+        except Exception as e:
+            raise Exception(f"Pazarama'ya toplu ürün aktarılırken hata oluştu: {str(e)}")
+
 class AmazonAdapter(MarketplaceAdapter):
     def __init__(self, seller_id: str, refresh_token: str, region: str = "EU", lwa_client_id: str = None, lwa_client_secret: str = None):
         self.seller_id = seller_id

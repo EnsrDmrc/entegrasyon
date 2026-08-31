@@ -1550,76 +1550,126 @@ async def bulk_transfer_products(
         transfer_results = []
         success_count = 0
         
-        # 4. Aktarım Döngüsü
-        for sp in source_products:
+        # 4. Concurrently fetch product details to avoid Vercel/Railway timeout
+        sem = asyncio.Semaphore(20) # 20 eşzamanlı istek
+        async def fetch_detail_task(sp):
             sku = sp.get("sku")
-            if not sku:
+            if not sku: return (sp, None, "SKU yok")
+            async with sem:
+                try:
+                    details = await asyncio.to_thread(source_adapter.get_product_details, sku)
+                    return (sp, details, None)
+                except Exception as e:
+                    return (sp, None, str(e))
+                    
+        fetch_tasks = [fetch_detail_task(sp) for sp in source_products]
+        fetched_results = await asyncio.gather(*fetch_tasks)
+        
+        pazarama_bulk_payload = []
+        
+        # 5. Eşleştirme ve Pazarama Payload hazırlığı
+        for sp, details, err in fetched_results:
+            sku = sp.get("sku")
+            if err or not details:
+                transfer_results.append({"sku": sku, "name": sp.get("name"), "status": "error", "reason": err or "Detay alınamadı"})
                 continue
                 
-            try:
-                # Gerçek ürün detayını kaynak adaptörden çek
-                details = await asyncio.to_thread(source_adapter.get_product_details, sku)
-                source_cat = details.get("category_name", "")
-                source_brand = details.get("brand_name", "")
-                
-                # Kategori eşleştirme (Fuzzy Match)
-                target_cat_id = None
-                if source_cat:
-                    matches = difflib.get_close_matches(source_cat.lower(), cat_names, n=1, cutoff=0.5)
-                    if matches:
-                        match_name = matches[0]
-                        target_cat_id = next((c.get("id") for c in target_categories if isinstance(c, dict) and (c.get("name") or c.get("displayName") or "").lower() == match_name), None)
-                        
-                # Eğer kategori eşleşemediyse "Diğer" (Other) benzeri bir kategori bulmaya çalış (Opsiyonel fallback)
-                if not target_cat_id and target_categories:
-                    # Sadece sistemi test edebilmeleri için ilk kategoriyi veya "Diğer" içeren bir kategoriyi atayalım
-                    fallback_cat = next((c for c in target_categories if isinstance(c, dict) and "diğer" in (c.get("name") or c.get("displayName") or "").lower()), None)
-                    if fallback_cat:
-                        target_cat_id = fallback_cat.get("id")
-                    else:
-                        target_cat_id = target_categories[0].get("id") if len(target_categories) > 0 and isinstance(target_categories[0], dict) else None
-                
-                # Marka eşleştirme
-                target_brand_id = None
-                if source_brand:
-                    b_matches = difflib.get_close_matches(source_brand.lower(), brand_names, n=1, cutoff=0.5)
-                    if b_matches:
-                        b_match = b_matches[0]
-                        target_brand_id = next((b.get("id") for b in target_brands if isinstance(b, dict) and (b.get("name") or b.get("displayName") or "").lower() == b_match), None)
-                
-                # Marka yoksa veya eşleşmediyse Pazarama'nın "Diğer" markasını bul
-                if not target_brand_id and target_brands:
-                    fallback_brand = next((b for b in target_brands if isinstance(b, dict) and "diğer" in (b.get("name") or b.get("displayName") or "").lower()), None)
-                    if fallback_brand:
-                        target_brand_id = fallback_brand.get("id")
-                    else:
-                        target_brand_id = target_brands[0].get("id") if len(target_brands) > 0 and isinstance(target_brands[0], dict) else None
-                        
-                # Hala ID'ler yoksa hata ver (Örn: Pazarama API listesi boş dönmüşse)
-                if not target_cat_id or not target_brand_id:
-                    transfer_results.append({
-                        "sku": sku, 
-                        "name": details.get("name"), 
-                        "status": "error", 
-                        "reason": f"Kategori veya Marka eşleşmedi. (Kaynak Cat: {source_cat}, Brand: {source_brand})"
-                    })
-                    continue
+            source_cat = details.get("category_name", "")
+            source_brand = details.get("brand_name", "")
+            
+            # Kategori eşleştirme (Fuzzy Match)
+            target_cat_id = None
+            if source_cat:
+                matches = difflib.get_close_matches(source_cat.lower(), cat_names, n=1, cutoff=0.5)
+                if matches:
+                    match_name = matches[0]
+                    target_cat_id = next((c.get("id") for c in target_categories if isinstance(c, dict) and (c.get("name") or c.get("displayName") or "").lower() == match_name), None)
                     
-                # Hedefe gönder
-                res = await asyncio.to_thread(target_adapter.create_product, details, target_cat_id, target_brand_id, 20)
-                
-                if res.get("isSuccess") or res.get("success"):
-                    success_count += 1
-                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "success", "reason": "Başarılı"})
+            if not target_cat_id and target_categories:
+                fallback_cat = next((c for c in target_categories if isinstance(c, dict) and "diğer" in (c.get("name") or c.get("displayName") or "").lower()), None)
+                if fallback_cat:
+                    target_cat_id = fallback_cat.get("id")
                 else:
-                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "error", "reason": str(res.get("messages") or res.get("message") or "Bilinmeyen hata")})
+                    target_cat_id = target_categories[0].get("id") if len(target_categories) > 0 and isinstance(target_categories[0], dict) else None
+            
+            # Marka eşleştirme
+            target_brand_id = None
+            if source_brand:
+                b_matches = difflib.get_close_matches(source_brand.lower(), brand_names, n=1, cutoff=0.5)
+                if b_matches:
+                    b_match = b_matches[0]
+                    target_brand_id = next((b.get("id") for b in target_brands if isinstance(b, dict) and (b.get("name") or b.get("displayName") or "").lower() == b_match), None)
+            
+            if not target_brand_id and target_brands:
+                fallback_brand = next((b for b in target_brands if isinstance(b, dict) and "diğer" in (b.get("name") or b.get("displayName") or "").lower()), None)
+                if fallback_brand:
+                    target_brand_id = fallback_brand.get("id")
+                else:
+                    target_brand_id = target_brands[0].get("id") if len(target_brands) > 0 and isinstance(target_brands[0], dict) else None
                     
-                # Rate limit (HTTP 429) hatasını önlemek için her ürün arasında yarım saniye bekleyelim
-                await asyncio.sleep(0.5)
-                    
-            except Exception as e:
-                transfer_results.append({"sku": sku, "name": sp.get("name"), "status": "error", "reason": str(e)})
+            if not target_cat_id or not target_brand_id:
+                transfer_results.append({
+                    "sku": sku, 
+                    "name": details.get("name"), 
+                    "status": "error", 
+                    "reason": f"Kategori veya Marka eşleşmedi. (Kaynak Cat: {source_cat}, Brand: {source_brand})"
+                })
+                continue
                 
+            # Pazarama Bulk Payload'ına ekle
+            pazarama_images = []
+            for img in details.get("images", []):
+                if isinstance(img, dict):
+                    img_url = img.get("url") or img.get("imageurl") or img.get("imageUrl")
+                    if img_url:
+                        pazarama_images.append({"imageurl": img_url})
+                elif isinstance(img, str):
+                    pazarama_images.append({"imageurl": img})
+            if not pazarama_images:
+                pazarama_images.append({"imageurl": "https://via.placeholder.com/500"})
+                
+            pazarama_bulk_payload.append({
+                "Name": details.get("name")[:100],
+                "DisplayName": details.get("name")[:100],
+                "Description": details.get("description", "Açıklama bulunmuyor.") or "Açıklama bulunmuyor.",
+                "BrandId": str(target_brand_id),
+                "CategoryId": str(target_cat_id),
+                "Code": str(sku),
+                "GroupCode": str(sku),
+                "StockCount": int(details.get("stock", sp.get("stock", 0))),
+                "VatRate": 20,
+                "ListPrice": float(details.get("price", 0.0)),
+                "SalePrice": float(details.get("price", 0.0)),
+                "Desi": 1,
+                "images": pazarama_images,
+                # UI'da göstermek için geçici saklanan veriler
+                "_sku": sku,
+                "_name": details.get("name")
+            })
+
+        # 6. Tüm ürünleri Tek Seferde (veya 50'şerli batchler halinde) Gönder
+        if pazarama_bulk_payload:
+            # Batching to avoid too large payload size limits (e.g. 50 products per request)
+            batch_size = 50
+            for i in range(0, len(pazarama_bulk_payload), batch_size):
+                batch = pazarama_bulk_payload[i:i + batch_size]
+                
+                # Temizle geçici değişkenleri
+                clean_batch = [{k: v for k, v in p.items() if not k.startswith("_")} for p in batch]
+                
+                try:
+                    res = await asyncio.to_thread(target_adapter.create_products_bulk, clean_batch)
+                    if res.get("isSuccess") or res.get("success"):
+                        success_count += len(batch)
+                        for p in batch:
+                            transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "success", "reason": "Başarılı (Bulk)"})
+                    else:
+                        for p in batch:
+                            transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "error", "reason": str(res.get("messages") or res.get("message") or "Bilinmeyen Bulk Hatası")})
+                except Exception as e:
+                    for p in batch:
+                        transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "error", "reason": str(e)})
+                        
         return {
             "message": f"{len(source_products)} üründen {success_count} tanesi başarıyla aktarıldı.",
             "results": transfer_results
