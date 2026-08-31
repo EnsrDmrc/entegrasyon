@@ -1670,6 +1670,9 @@ async def bulk_transfer_products(
                     for p in batch:
                         transfer_results.append({"sku": p["_sku"], "name": p["_name"], "status": "error", "reason": str(e)})
                         
+                # Batch'ler arası Pazarama rate-limitine (429) takılmamak için 5 saniye bekleyelim
+                await asyncio.sleep(5.0)
+                        
         return {
             "message": f"{len(source_products)} üründen {success_count} tanesi başarıyla aktarıldı.",
             "results": transfer_results
