@@ -1399,6 +1399,55 @@ async def transfer_product(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Aktarım başarısız: {str(e)}")
 
+@router.get("/bruteforce-pazarama")
+async def bruteforce_pazarama(db: AsyncSession = Depends(get_db)):
+    import httpx
+    from services.marketplace import PazaramaAdapter
+    
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.marketplace_name == "pazarama", MarketplaceIntegration.is_active == True))
+    integration = result.scalars().first()
+    if not integration:
+        return {"error": "Pazarama entegrasyonu bulunamadı."}
+        
+    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+    try:
+        adapter._get_token()
+    except Exception as e:
+        return {"error": f"Token alınamadı: {str(e)}"}
+        
+    headers = {
+        "Authorization": f"Bearer {adapter.token}",
+        "Accept": "application/json"
+    }
+    
+    endpoints = [
+        "/Category", "/category", "/categories", "/Categories",
+        "/api/Category", "/api/category", "/api/Categories", "/api/categories",
+        "/Category/getCategoryTree", "/Category/GetCategoryTree", 
+        "/Category/GetCategories", "/Category/getCategories",
+        "/category/category-tree", "/category/categoryTree",
+        "/api/v1/Category", "/api/v1/category",
+        "/Category/getAll", "/category/getAll",
+        "/product/category", "/product/categories",
+        "/Category/getCategoryWithAttributes", "/category/getCategoryWithAttributes",
+        "/Category/get-categories"
+    ]
+    
+    results = {}
+    async with httpx.AsyncClient() as client:
+        for ep in endpoints:
+            try:
+                resp = await client.get(f"https://isortagimapi.pazarama.com{ep}", headers=headers, timeout=10.0)
+                results[ep] = resp.status_code
+                if resp.status_code == 200:
+                    results["SUCCESS_URL"] = ep
+                    results["SAMPLE_DATA"] = resp.text[:200]
+                    break
+            except Exception as e:
+                results[ep] = f"Error: {str(e)}"
+                
+    return results
+
 from pydantic import BaseModel
 class BulkTransferRequest(BaseModel):
     source_marketplace: str
