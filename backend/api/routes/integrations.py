@@ -1692,6 +1692,8 @@ async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(ge
             raise HTTPException(status_code=404, detail="Pazarama entegrasyonu bulunamadı.")
             
         import httpx
+        from services.marketplace import PazaramaAdapter
+        
         adapter = PazaramaAdapter(
             seller_id=integration.seller_id,
             refresh_token=integration.api_secret or integration.api_key
