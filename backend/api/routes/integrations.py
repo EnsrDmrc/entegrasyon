@@ -1448,6 +1448,34 @@ async def bruteforce_pazarama(db: AsyncSession = Depends(get_db)):
                 
     return results
 
+@router.get("/bruteforce-n11")
+async def bruteforce_n11(db: AsyncSession = Depends(get_db)):
+    from services.marketplace import N11Adapter
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.marketplace_name == "n11", MarketplaceIntegration.is_active == True))
+    integration = result.scalars().first()
+    if not integration:
+        return {"error": "N11 entegrasyonu bulunamadı."}
+        
+    adapter = N11Adapter(api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+    try:
+        products = await asyncio.to_thread(adapter.fetch_all_products)
+        if not products:
+            return {"error": "N11'de ürün bulunamadı."}
+            
+        sku = products[0]["sku"]
+        res = await asyncio.to_thread(adapter.product_client.service.GetProductBySellerCode, auth=adapter.auth, sellerCode=sku)
+        
+        # Zeep objelerini dict'e çevirelim ki JSON olarak döndürebilelim
+        from zeep.helpers import serialize_object
+        prod_dict = serialize_object(res)
+        
+        return {
+            "sku_tested": sku,
+            "raw_product_data": prod_dict
+        }
+    except Exception as e:
+        return {"error": f"Hata: {str(e)}"}
+
 from pydantic import BaseModel
 class BulkTransferRequest(BaseModel):
     source_marketplace: str
