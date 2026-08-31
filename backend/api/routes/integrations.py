@@ -1568,8 +1568,16 @@ async def bulk_transfer_products(
                     matches = difflib.get_close_matches(source_cat.lower(), cat_names, n=1, cutoff=0.5)
                     if matches:
                         match_name = matches[0]
-                        # ID'yi bul
                         target_cat_id = next((c.get("id") for c in target_categories if isinstance(c, dict) and (c.get("name") or c.get("displayName") or "").lower() == match_name), None)
+                        
+                # Eğer kategori eşleşemediyse "Diğer" (Other) benzeri bir kategori bulmaya çalış (Opsiyonel fallback)
+                if not target_cat_id and target_categories:
+                    # Sadece sistemi test edebilmeleri için ilk kategoriyi veya "Diğer" içeren bir kategoriyi atayalım
+                    fallback_cat = next((c for c in target_categories if isinstance(c, dict) and "diğer" in (c.get("name") or c.get("displayName") or "").lower()), None)
+                    if fallback_cat:
+                        target_cat_id = fallback_cat.get("id")
+                    else:
+                        target_cat_id = target_categories[0].get("id") if len(target_categories) > 0 and isinstance(target_categories[0], dict) else None
                 
                 # Marka eşleştirme
                 target_brand_id = None
@@ -1578,8 +1586,16 @@ async def bulk_transfer_products(
                     if b_matches:
                         b_match = b_matches[0]
                         target_brand_id = next((b.get("id") for b in target_brands if isinstance(b, dict) and (b.get("name") or b.get("displayName") or "").lower() == b_match), None)
+                
+                # Marka yoksa veya eşleşmediyse Pazarama'nın "Diğer" markasını bul
+                if not target_brand_id and target_brands:
+                    fallback_brand = next((b for b in target_brands if isinstance(b, dict) and "diğer" in (b.get("name") or b.get("displayName") or "").lower()), None)
+                    if fallback_brand:
+                        target_brand_id = fallback_brand.get("id")
+                    else:
+                        target_brand_id = target_brands[0].get("id") if len(target_brands) > 0 and isinstance(target_brands[0], dict) else None
                         
-                # Eğer bulunamadıysa Pazarama için varsayılan bir ID atamayı deneyebiliriz, şimdilik hata verdiriyoruz.
+                # Hala ID'ler yoksa hata ver (Örn: Pazarama API listesi boş dönmüşse)
                 if not target_cat_id or not target_brand_id:
                     transfer_results.append({
                         "sku": sku, 

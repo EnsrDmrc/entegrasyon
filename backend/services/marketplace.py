@@ -234,37 +234,49 @@ class N11Adapter(MarketplaceAdapter):
         
     def get_product_details(self, sku: str) -> dict:
         try:
+            from zeep.helpers import serialize_object
             res = self.product_client.service.GetProductBySellerCode(auth=self.auth, sellerCode=sku)
             if res.result.status == "failure":
                 raise Exception(f"N11 Ürün detayı çekilemedi: {res.result.errorMessage}")
             
-            prod = res.product
+            prod = serialize_object(res.product)
+            if not isinstance(prod, dict):
+                prod = {}
+                
             # N11'den gelen veriyi standardize edelim
             images = []
-            if hasattr(prod, 'images') and prod.images and hasattr(prod.images, 'image'):
-                for img in prod.images.image:
-                    if hasattr(img, 'url'):
-                        images.append(img.url)
+            if prod.get('images') and isinstance(prod['images'], dict) and prod['images'].get('image'):
+                image_list = prod['images']['image']
+                if not isinstance(image_list, list):
+                    image_list = [image_list]
+                for img in image_list:
+                    if isinstance(img, dict) and img.get('url'):
+                        images.append(img['url'])
                         
-            description = ""
-            if hasattr(prod, 'description'):
-                description = prod.description
+            description = prod.get('description', '')
                 
             brand_name = ""
-            if hasattr(prod, 'attributes') and prod.attributes and hasattr(prod.attributes, 'attribute'):
-                for attr in prod.attributes.attribute:
-                    if hasattr(attr, 'name') and attr.name.lower() == 'marka':
-                        brand_name = attr.value
+            if prod.get('attributes') and isinstance(prod['attributes'], dict) and prod['attributes'].get('attribute'):
+                attr_list = prod['attributes']['attribute']
+                if not isinstance(attr_list, list):
+                    attr_list = [attr_list]
+                for attr in attr_list:
+                    if isinstance(attr, dict) and attr.get('name', '').lower() == 'marka':
+                        brand_name = attr.get('value', '')
                         break
+                        
+            cat_obj = prod.get('category') or {}
+            category_id = cat_obj.get('id')
+            category_name = cat_obj.get('name') or cat_obj.get('fullName') or ""
                 
             return {
                 "sku": sku,
-                "name": prod.title,
+                "name": prod.get('title', ''),
                 "description": description,
-                "price": float(prod.price) if prod.price else 0.0,
+                "price": float(prod.get('price', 0.0)) if prod.get('price') else 0.0,
                 "images": images,
-                "category_id": prod.category.id if hasattr(prod, 'category') and prod.category else None,
-                "category_name": prod.category.name if hasattr(prod, 'category') and hasattr(prod.category, 'name') else "",
+                "category_id": category_id,
+                "category_name": category_name,
                 "brand_name": brand_name
             }
         except Exception as e:
