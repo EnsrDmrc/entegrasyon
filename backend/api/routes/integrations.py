@@ -1680,13 +1680,13 @@ async def bulk_transfer_products(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/pazarama/batch-status")
-async def get_pazarama_batch_status(batch_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(get_db)):
     """
     Pazarama üzerinden gönderilen toplu ürün (bulk) isteğinin detaylı hata raporunu çeker.
     """
     try:
         # Pazarama token bilgisini al
-        integration = await db.execute(select(MarketplaceIntegration).filter_by(tenant_id=current_user.tenant_id, marketplace_name="PAZARAMA"))
+        integration = await db.execute(select(MarketplaceIntegration).filter_by(marketplace_name="PAZARAMA"))
         integration = integration.scalars().first()
         if not integration:
             raise HTTPException(status_code=404, detail="Pazarama entegrasyonu bulunamadı.")
