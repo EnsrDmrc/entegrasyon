@@ -1096,13 +1096,20 @@ class PazaramaAdapter(MarketplaceAdapter):
         }
         
         try:
-            resp = httpx.post("https://isortagimapi.pazarama.com/product/create", headers=headers, json=payload, timeout=30.0)
-            if resp.status_code not in (200, 201):
-                raise Exception(f"Pazarama Ürün Oluşturma Hatası (HTTP {resp.status_code}): {resp.text[:300]}")
+            import time
+            max_retries = 3
+            for attempt in range(max_retries):
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/create", headers=headers, json=payload, timeout=30.0)
+                if resp.status_code == 429:
+                    if attempt < max_retries - 1:
+                        time.sleep(1.5)
+                        continue
                 
-            resp_data = resp.json()
-            # Pazarama, başarılı ise genelde UUID döner (onay sürecine girdiği için)
-            return {"success": True, "message": "Ürün başarıyla Pazarama'ya aktarıldı ve onay sürecine girdi.", "data": resp_data}
+                if resp.status_code not in (200, 201):
+                    raise Exception(f"Pazarama Ürün Oluşturma Hatası (HTTP {resp.status_code}): {resp.text[:300]}")
+                    
+                resp_data = resp.json()
+                return {"success": True, "message": "Ürün başarıyla Pazarama'ya aktarıldı ve onay sürecine girdi.", "data": resp_data}
         except Exception as e:
             raise Exception(f"Pazarama'ya ürün aktarılırken hata oluştu: {str(e)}")
 

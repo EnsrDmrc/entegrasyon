@@ -1608,11 +1608,14 @@ async def bulk_transfer_products(
                 # Hedefe gönder
                 res = await asyncio.to_thread(target_adapter.create_product, details, target_cat_id, target_brand_id, 20)
                 
-                if res.get("isSuccess"):
+                if res.get("isSuccess") or res.get("success"):
                     success_count += 1
                     transfer_results.append({"sku": sku, "name": details.get("name"), "status": "success", "reason": "Başarılı"})
                 else:
-                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "error", "reason": str(res.get("messages", "Bilinmeyen hata"))})
+                    transfer_results.append({"sku": sku, "name": details.get("name"), "status": "error", "reason": str(res.get("messages") or res.get("message") or "Bilinmeyen hata")})
+                    
+                # Rate limit (HTTP 429) hatasını önlemek için her ürün arasında yarım saniye bekleyelim
+                await asyncio.sleep(0.5)
                     
             except Exception as e:
                 transfer_results.append({"sku": sku, "name": sp.get("name"), "status": "error", "reason": str(e)})
