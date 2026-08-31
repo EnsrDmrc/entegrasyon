@@ -1695,8 +1695,8 @@ async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(ge
         from services.marketplace import PazaramaAdapter
         
         adapter = PazaramaAdapter(
-            seller_id=integration.seller_id,
-            refresh_token=integration.api_secret or integration.api_key
+            seller_id=integration.api_key,
+            refresh_token=integration.api_secret
         )
         if not adapter.token:
             adapter._get_token()
