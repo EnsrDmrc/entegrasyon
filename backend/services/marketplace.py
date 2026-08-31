@@ -870,11 +870,15 @@ class PazaramaAdapter(MarketplaceAdapter):
         }
         async with httpx.AsyncClient() as client:
             try:
-                # Olası endpointler
-                for ep in ["/category/category-tree", "/Category/getCategoryTree", "/Category/GetCategories", "/category", "/Category", "/api/category"]:
+                # Doğru endpoint: /Category/getCategoryTree
+                for ep in ["/Category/getCategoryTree", "/category/category-tree", "/Category/GetCategories", "/category", "/Category"]:
                     resp = await client.get(f"https://isortagimapi.pazarama.com{ep}", headers=headers, timeout=15.0)
                     if resp.status_code == 200:
-                        return resp.json()
+                        data = resp.json()
+                        # Eğer {"data": [...]} formatındaysa
+                        if isinstance(data, dict) and "data" in data:
+                            return {"isSuccess": True, "data": data["data"]}
+                        return {"isSuccess": True, "data": data}
                 return {"isSuccess": False, "message": "Kategori endpointi bulunamadı (404)"}
             except Exception as e:
                 return {"isSuccess": False, "message": f"Kategoriler çekilirken hata: {str(e)}"}
@@ -889,10 +893,13 @@ class PazaramaAdapter(MarketplaceAdapter):
         }
         async with httpx.AsyncClient() as client:
             try:
-                for ep in ["/brand/getAll", "/Brand/GetBrands", "/brand", "/Brand", "/api/brand"]:
+                for ep in ["/Brand/getAll", "/brand/getAll", "/Brand/GetBrands", "/brand", "/Brand"]:
                     resp = await client.get(f"https://isortagimapi.pazarama.com{ep}", headers=headers, timeout=15.0)
                     if resp.status_code == 200:
-                        return resp.json()
+                        data = resp.json()
+                        if isinstance(data, dict) and "data" in data:
+                            return {"isSuccess": True, "data": data["data"]}
+                        return {"isSuccess": True, "data": data}
                 return {"isSuccess": False, "message": "Marka endpointi bulunamadı (404)"}
             except Exception as e:
                 return {"isSuccess": False, "message": f"Markalar çekilirken hata: {str(e)}"}

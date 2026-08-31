@@ -1516,8 +1516,8 @@ async def bulk_transfer_products(
         else:
             raise HTTPException(status_code=400, detail="Toplu aktarım şimdilik sadece Pazarama hedefine desteklenmektedir.")
             
-        cat_names = [c.get("name", "").lower() for c in target_categories]
-        brand_names = [b.get("name", "").lower() for b in target_brands]
+        cat_names = [(c.get("name") or c.get("displayName") or "").lower() for c in target_categories if isinstance(c, dict)]
+        brand_names = [(b.get("name") or b.get("displayName") or "").lower() for b in target_brands if isinstance(b, dict)]
         
         transfer_results = []
         success_count = 0
@@ -1541,7 +1541,7 @@ async def bulk_transfer_products(
                     if matches:
                         match_name = matches[0]
                         # ID'yi bul
-                        target_cat_id = next((c.get("id") for c in target_categories if c.get("name", "").lower() == match_name), None)
+                        target_cat_id = next((c.get("id") for c in target_categories if isinstance(c, dict) and (c.get("name") or c.get("displayName") or "").lower() == match_name), None)
                 
                 # Marka eşleştirme
                 target_brand_id = None
@@ -1549,7 +1549,7 @@ async def bulk_transfer_products(
                     b_matches = difflib.get_close_matches(source_brand.lower(), brand_names, n=1, cutoff=0.5)
                     if b_matches:
                         b_match = b_matches[0]
-                        target_brand_id = next((b.get("id") for b in target_brands if b.get("name", "").lower() == b_match), None)
+                        target_brand_id = next((b.get("id") for b in target_brands if isinstance(b, dict) and (b.get("name") or b.get("displayName") or "").lower() == b_match), None)
                         
                 # Eğer bulunamadıysa Pazarama için varsayılan bir ID atamayı deneyebiliriz, şimdilik hata verdiriyoruz.
                 if not target_cat_id or not target_brand_id:
