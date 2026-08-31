@@ -1708,7 +1708,7 @@ async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(ge
         }
         
         # Pazarama Batch Request endpointini sorgula
-        url = f"https://isortagimapi.pazarama.com/product/BatchRequestResult?batchRequestId={batch_id}"
+        url = f"https://isortagimapi.pazarama.com/product/BatchRequestResult/{batch_id}"
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers)
             
