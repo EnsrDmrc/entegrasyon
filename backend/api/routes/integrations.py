@@ -1686,7 +1686,7 @@ async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(ge
     """
     try:
         # Pazarama token bilgisini al
-        integration = await db.execute(select(MarketplaceIntegration).filter_by(marketplace_name="PAZARAMA"))
+        integration = await db.execute(select(MarketplaceIntegration).filter(MarketplaceIntegration.marketplace_name.ilike("%pazarama%")))
         integration = integration.scalars().first()
         if not integration:
             raise HTTPException(status_code=404, detail="Pazarama entegrasyonu bulunamadı.")
