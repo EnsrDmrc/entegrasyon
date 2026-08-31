@@ -1448,12 +1448,22 @@ async def bulk_transfer_products(
         
         if data.target_marketplace == "pazarama":
             target_adapter = PazaramaAdapter(merchant_id=str(target_int.store_url), api_key=str(target_int.api_key), api_secret=str(target_int.api_secret))
+            
             cat_res = await target_adapter.get_categories()
-            if cat_res.get("isSuccess"):
+            if isinstance(cat_res, dict) and cat_res.get("isSuccess"):
                 target_categories = cat_res.get("data", [])
+            elif isinstance(cat_res, list):
+                target_categories = cat_res
+            elif isinstance(cat_res, dict) and "data" in cat_res:
+                target_categories = cat_res["data"]
+                
             brand_res = await target_adapter.get_brands()
-            if brand_res.get("isSuccess"):
+            if isinstance(brand_res, dict) and brand_res.get("isSuccess"):
                 target_brands = brand_res.get("data", [])
+            elif isinstance(brand_res, list):
+                target_brands = brand_res
+            elif isinstance(brand_res, dict) and "data" in brand_res:
+                target_brands = brand_res["data"]
         else:
             raise HTTPException(status_code=400, detail="Toplu aktarım şimdilik sadece Pazarama hedefine desteklenmektedir.")
             

@@ -869,15 +869,15 @@ class PazaramaAdapter(MarketplaceAdapter):
             "Accept": "application/json"
         }
         async with httpx.AsyncClient() as client:
-            resp = await client.get("https://isortagimapi.pazarama.com/Category", headers=headers, timeout=30.0)
-            if resp.status_code == 200:
-                return resp.json()
-            else:
-                # Bazen küçük harfle olabilir, fallback yapalım
-                resp2 = await client.get("https://isortagimapi.pazarama.com/category", headers=headers, timeout=30.0)
-                if resp2.status_code == 200:
-                    return resp2.json()
-                raise Exception(f"Pazarama kategorileri alınamadı: {resp.status_code} - {resp.text[:200]}")
+            try:
+                # Olası endpointler
+                for ep in ["/category/category-tree", "/Category/getCategoryTree", "/Category/GetCategories", "/category", "/Category", "/api/category"]:
+                    resp = await client.get(f"https://isortagimapi.pazarama.com{ep}", headers=headers, timeout=15.0)
+                    if resp.status_code == 200:
+                        return resp.json()
+                return {"isSuccess": False, "message": "Kategori endpointi bulunamadı (404)"}
+            except Exception as e:
+                return {"isSuccess": False, "message": f"Kategoriler çekilirken hata: {str(e)}"}
 
     async def get_brands(self):
         import httpx
@@ -888,14 +888,14 @@ class PazaramaAdapter(MarketplaceAdapter):
             "Accept": "application/json"
         }
         async with httpx.AsyncClient() as client:
-            resp = await client.get("https://isortagimapi.pazarama.com/Brand", headers=headers, timeout=30.0)
-            if resp.status_code == 200:
-                return resp.json()
-            else:
-                resp2 = await client.get("https://isortagimapi.pazarama.com/brand", headers=headers, timeout=30.0)
-                if resp2.status_code == 200:
-                    return resp2.json()
-                raise Exception(f"Pazarama markaları alınamadı: {resp.status_code} - {resp.text[:200]}")
+            try:
+                for ep in ["/brand/getAll", "/Brand/GetBrands", "/brand", "/Brand", "/api/brand"]:
+                    resp = await client.get(f"https://isortagimapi.pazarama.com{ep}", headers=headers, timeout=15.0)
+                    if resp.status_code == 200:
+                        return resp.json()
+                return {"isSuccess": False, "message": "Marka endpointi bulunamadı (404)"}
+            except Exception as e:
+                return {"isSuccess": False, "message": f"Markalar çekilirken hata: {str(e)}"}
 
     def fetch_all_products(self) -> list:
         print('[Pazarama] Ürünler gerçek API\'den çekiliyor...')
