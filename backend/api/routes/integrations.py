@@ -1708,13 +1708,42 @@ async def get_pazarama_batch_status(batch_id: str, db: AsyncSession = Depends(ge
         }
         
         # Pazarama Batch Request endpointini sorgula
-        url = f"https://isortagimapi.pazarama.com/product/BatchRequestResult/{batch_id}"
+        merchant_id = str(integration.store_url)
+        endpoints_to_try = [
+            ("GET", f"https://isortagimapi.pazarama.com/product/BatchRequestResult?batchRequestId={batch_id}"),
+            ("GET", f"https://isortagimapi.pazarama.com/product/BatchRequestResult/{batch_id}"),
+            ("GET", f"https://isortagimapi.pazarama.com/{merchant_id}/product/BatchRequestResult?batchRequestId={batch_id}"),
+            ("GET", f"https://isortagimapi.pazarama.com/{merchant_id}/product/BatchRequestResult/{batch_id}"),
+            ("GET", f"https://isortagimapi.pazarama.com/Product/BatchRequestResult?batchRequestId={batch_id}"),
+            ("GET", f"https://isortagimapi.pazarama.com/Product/BatchRequestResult/{batch_id}"),
+            ("POST", f"https://isortagimapi.pazarama.com/product/BatchRequestResult", {"batchRequestId": batch_id})
+        ]
+        
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
-            
+            results = []
+            for ep in endpoints_to_try:
+                method = ep[0]
+                url = ep[1]
+                kwargs = {"headers": headers}
+                if method == "POST":
+                    kwargs["json"] = ep[2]
+                
+                if method == "GET":
+                    resp = await client.get(url, **kwargs)
+                else:
+                    resp = await client.post(url, **kwargs)
+                
+                if resp.status_code != 404:
+                    return {
+                        "successful_url": url,
+                        "status_code": resp.status_code,
+                        "data": resp.json() if resp.status_code == 200 else resp.text
+                    }
+                results.append({"url": url, "status": resp.status_code})
+                
             return {
-                "status_code": resp.status_code,
-                "data": resp.json() if resp.status_code == 200 else resp.text
+                "error": "Tüm URL kombinasyonları 404 döndürdü.",
+                "attempts": results
             }
             
     except Exception as e:
