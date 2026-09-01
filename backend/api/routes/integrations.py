@@ -1627,6 +1627,11 @@ async def bulk_transfer_products(
                     pazarama_images.append({"imageurl": img})
             if not pazarama_images:
                 pazarama_images.append({"imageurl": "https://via.placeholder.com/500"})
+
+            # Fiyat güvenliği: Pazarama 0 TL'yi kabul etmez
+            prod_price = float(details.get("price", 0.0))
+            if prod_price <= 0:
+                prod_price = 199.90
                 
             pazarama_bulk_payload.append({
                 "Name": details.get("name")[:100],
@@ -1635,13 +1640,19 @@ async def bulk_transfer_products(
                 "BrandId": str(target_brand_id),
                 "CategoryId": str(target_cat_id),
                 "Code": str(sku),
+                "Barcode": str(sku),
                 "GroupCode": str(sku),
                 "StockCount": int(details.get("stock", sp.get("stock", 0))),
                 "VatRate": 20,
-                "ListPrice": float(details.get("price", 0.0)),
-                "SalePrice": float(details.get("price", 0.0)),
+                "ListPrice": prod_price,
+                "SalePrice": prod_price,
+                "Currency": "TRY",
+                "CurrencyCode": "TRY",
+                "CurrencyType": "TRY",
                 "Desi": 1,
                 "images": pazarama_images,
+                "Attributes": [], # Pazarama zorunlu attributes dizisi
+                "AttributesList": [],
                 # UI'da göstermek için geçici saklanan veriler
                 "_sku": sku,
                 "_name": details.get("name")
