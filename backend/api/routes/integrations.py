@@ -1541,8 +1541,18 @@ async def bulk_transfer_products(
                 target_brands = brand_res
             elif isinstance(brand_res, dict) and "data" in brand_res:
                 target_brands = brand_res["data"]
+        elif data.target_marketplace == "amazon":
+            from services.marketplace import AmazonAdapter
+            from core.config import settings
+            
+            target_adapter = AmazonAdapter(
+                seller_id=str(target_int.store_url), # Amazon'da store_url içinde seller_id ve region tutuyoruz
+                refresh_token=str(target_int.api_secret),
+                lwa_client_id=settings.AMAZON_LWA_CLIENT_ID,
+                lwa_client_secret=settings.AMAZON_LWA_CLIENT_SECRET
+            )
         else:
-            raise HTTPException(status_code=400, detail="Toplu aktarım şimdilik sadece Pazarama hedefine desteklenmektedir.")
+            raise HTTPException(status_code=400, detail="Toplu aktarım şimdilik sadece Pazarama ve Amazon hedefine desteklenmektedir.")
             
         cat_names = [(c.get("name") or c.get("displayName") or "").lower() for c in target_categories if isinstance(c, dict)]
         brand_names = [(b.get("name") or b.get("displayName") or "").lower() for b in target_brands if isinstance(b, dict)]
@@ -1605,65 +1615,86 @@ async def bulk_transfer_products(
                 if fallback_brand:
                     target_brand_id = fallback_brand.get("id")
                 else:
-                    target_brand_id = target_brands[0].get("id") if len(target_brands) > 0 and isinstance(target_brands[0], dict) else None
-                    
-            if not target_cat_id or not target_brand_id:
-                transfer_results.append({
-                    "sku": sku, 
-                    "name": details.get("name"), 
-                    "status": "error", 
-                    "reason": f"Kategori veya Marka eşleşmedi. (Kaynak Cat: {source_cat}, Brand: {source_brand})"
-                })
+                transfer_results.append({"sku": sp.get("sku"), "name": sp.get("name"), "status": "error", "reason": err or "Detay alınamadı"})
                 continue
                 
-            # Pazarama Bulk Payload'ına ekle
-            pazarama_images = []
-            for img in details.get("images", []):
-                if isinstance(img, dict):
-                    img_url = img.get("url") or img.get("imageurl") or img.get("imageUrl")
-                    if img_url:
-                        pazarama_images.append({"imageurl": img_url})
-                elif isinstance(img, str):
-                    pazarama_images.append({"imageurl": img})
-            if not pazarama_images:
-                pazarama_images.append({"imageurl": "https://via.placeholder.com/500"})
-
-            # Fiyat güvenliği: Pazarama 0 TL'yi kabul etmez
+            sku = sp.get("sku")
             prod_price = float(details.get("price", 0.0))
             if prod_price <= 0:
                 prod_price = 199.90
+            
+            if data.target_marketplace == "amazon":
+                bulk_payload.append({
+                    "sku": str(sku),
+                    "name": details.get("name")[:200],
+                    "description": details.get("description", ""),
+                    "price": prod_price,
+                    "stock": int(details.get("stock", sp.get("stock", 0))),
+                    "currency": "TRY",
+                    "_sku": sku,
+                    "_name": details.get("name")
+                })
+            else:
+                # Pazarama payload logic
+                n11_cat_name = (details.get("category_name") or "").lower()
+                target_cat_id = None
+                for c in target_categories:
+                    if c.get("name", "").lower() in n11_cat_name or n11_cat_name in c.get("name", "").lower():
+                        target_cat_id = c.get("id") or c.get("Id")
+                        break
+                if not target_cat_id and target_categories:
+                    target_cat_id = target_categories[0].get("id") or target_categories[0].get("Id")
+                    
+                target_brand_id = None
+                for b in target_brands:
+                    if b.get("name", "").lower() == "diğer" or b.get("name", "").lower() == "other":
+                        target_brand_id = b.get("id") or b.get("Id")
+                        break
+                if not target_brand_id and target_brands:
+                    target_brand_id = target_brands[0].get("id") or target_brands[0].get("Id")
+                    
+                pazarama_images = []
+                for img in details.get("images", []):
+                    if isinstance(img, dict):
+                        img_url = img.get("url") or img.get("imageurl") or img.get("imageUrl")
+                        if img_url:
+                            pazarama_images.append({"imageurl": img_url})
+                    elif isinstance(img, str):
+                        pazarama_images.append({"imageurl": img})
+                if not pazarama_images:
+                    pazarama_images.append({"imageurl": "https://via.placeholder.com/500"})
+                    
+                bulk_payload.append({
+                    "Name": details.get("name")[:100],
+                    "DisplayName": details.get("name")[:100],
+                    "Description": details.get("description", "Açıklama bulunmuyor.") or "Açıklama bulunmuyor.",
+                    "BrandId": str(target_brand_id),
+                    "CategoryId": str(target_cat_id),
+                    "Code": str(sku),
+                    "Barcode": str(sku),
+                    "GroupCode": str(sku),
+                    "StockCount": int(details.get("stock", sp.get("stock", 0))),
+                    "VatRate": 20,
+                    "ListPrice": prod_price,
+                    "SalePrice": prod_price,
+                    "Currency": "TRY",
+                    "CurrencyCode": "TRY",
+                    "CurrencyType": "TRY",
+                    "Desi": 1,
+                    "images": pazarama_images,
+                    "Attributes": [], # Pazarama zorunlu attributes dizisi
+                    "AttributesList": [],
+                    # UI'da göstermek için geçici saklanan veriler
+                    "_sku": sku,
+                    "_name": details.get("name")
+                })
                 
-            pazarama_bulk_payload.append({
-                "Name": details.get("name")[:100],
-                "DisplayName": details.get("name")[:100],
-                "Description": details.get("description", "Açıklama bulunmuyor.") or "Açıklama bulunmuyor.",
-                "BrandId": str(target_brand_id),
-                "CategoryId": str(target_cat_id),
-                "Code": str(sku),
-                "Barcode": str(sku),
-                "GroupCode": str(sku),
-                "StockCount": int(details.get("stock", sp.get("stock", 0))),
-                "VatRate": 20,
-                "ListPrice": prod_price,
-                "SalePrice": prod_price,
-                "Currency": "TRY",
-                "CurrencyCode": "TRY",
-                "CurrencyType": "TRY",
-                "Desi": 1,
-                "images": pazarama_images,
-                "Attributes": [], # Pazarama zorunlu attributes dizisi
-                "AttributesList": [],
-                # UI'da göstermek için geçici saklanan veriler
-                "_sku": sku,
-                "_name": details.get("name")
-            })
-
         # 6. Tüm ürünleri Tek Seferde (veya 50'şerli batchler halinde) Gönder
-        if pazarama_bulk_payload:
+        if bulk_payload:
             # Batching to avoid too large payload size limits (e.g. 50 products per request)
             batch_size = 50
-            for i in range(0, len(pazarama_bulk_payload), batch_size):
-                batch = pazarama_bulk_payload[i:i + batch_size]
+            for i in range(0, len(bulk_payload), batch_size):
+                batch = bulk_payload[i:i + batch_size]
                 
                 # Temizle geçici değişkenleri
                 clean_batch = [{k: v for k, v in p.items() if not k.startswith("_")} for p in batch]

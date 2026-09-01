@@ -1306,3 +1306,81 @@ class AmazonAdapter(MarketplaceAdapter):
         
     def get_product_details(self, sku: str) -> dict:
         return {}
+
+    def create_products_bulk(self, products_payload: list) -> dict:
+        """
+        Amazon Listings API v2021-08-01 kullanarak toplu ürün yükler.
+        Amazon API'si aslında tek tek (PUT) veya Feed tabanlı (Batch) kabul eder.
+        Basitlik adına burada ürünleri bir döngüde asenkron olarak yolluyoruz.
+        """
+        import httpx
+        import asyncio
+        
+        try:
+            token = self._get_token()
+        except Exception as e:
+            return {"success": False, "message": f"Amazon Token alınamadı: {str(e)}"}
+            
+        headers = {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json"
+        }
+        
+        results = []
+        success_count = 0
+        error_messages = []
+        
+        for p in products_payload:
+            sku = p.get("sku")
+            if not sku:
+                continue
+                
+            # Amazon SP-API Listings Items Payload (PRODUCT type - v2021-08-01)
+            # Not: Gerçekte her kategoriye özel detaylı attributes gerekir.
+            # Şimdilik en basit versiyonu yolluyoruz.
+            url = f"{self.base_url}/listings/2021-08-01/items/{self.seller_id}/{sku}?marketplaceIds={self.marketplace_id}"
+            
+            payload = {
+                "productType": "PRODUCT",
+                "requirements": "LISTING",
+                "attributes": {
+                    "item_name": [{"value": p.get("name", "")[:200], "language_tag": "tr_TR"}],
+                    "purchasable_offer": [{
+                        "currency": p.get("currency", "TRY"),
+                        "our_price": [{"schedule": [{"value_with_tax": float(p.get("price", 0.0))}]}]
+                    }],
+                    "fulfillment_availability": [{
+                        "fulfillment_channel_code": "DEFAULT",
+                        "quantity": int(p.get("stock", 0))
+                    }],
+                    "merchant_suggested_asin": [{"value": sku}] # Test amaçlı, genelde barcode gerekir
+                }
+            }
+            
+            try:
+                # Amazon'da yeni ürün oluşturmak PUT isteği ile yapılır
+                resp = httpx.put(url, headers=headers, json=payload, timeout=20.0)
+                
+                # Rate limit koruması
+                if resp.status_code == 429:
+                    import time
+                    time.sleep(2)
+                    resp = httpx.put(url, headers=headers, json=payload, timeout=20.0)
+                    
+                if resp.status_code in (200, 201, 202):
+                    success_count += 1
+                    results.append({"sku": sku, "status": "success"})
+                else:
+                    results.append({"sku": sku, "status": "error", "reason": resp.text})
+                    error_messages.append(f"{sku}: {resp.text[:200]}")
+            except Exception as e:
+                results.append({"sku": sku, "status": "error", "reason": str(e)})
+                error_messages.append(f"{sku}: {str(e)}")
+                
+        if success_count == len(products_payload) and len(products_payload) > 0:
+            return {"success": True, "message": f"{success_count} ürün Amazon'a başarıyla aktarıldı.", "results": results}
+        elif success_count > 0:
+            return {"success": True, "message": f"{success_count} ürün aktarıldı, {len(products_payload) - success_count} ürün hatalı.", "results": results, "errors": error_messages}
+        else:
+            return {"success": False, "message": "Hiçbir ürün aktarılamadı.", "results": results, "errors": error_messages}
+
