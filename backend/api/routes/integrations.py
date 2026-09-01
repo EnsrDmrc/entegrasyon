@@ -1575,50 +1575,15 @@ async def bulk_transfer_products(
         fetch_tasks = [fetch_detail_task(sp) for sp in source_products]
         fetched_results = await asyncio.gather(*fetch_tasks)
         
-        pazarama_bulk_payload = []
+        bulk_payload = []
         
-        # 5. Eşleştirme ve Pazarama Payload hazırlığı
+        # 5. Eşleştirme ve Payload hazırlığı
         for sp, details, err in fetched_results:
             sku = sp.get("sku")
             if err or not details:
                 transfer_results.append({"sku": sku, "name": sp.get("name"), "status": "error", "reason": err or "Detay alınamadı"})
                 continue
                 
-            source_cat = details.get("category_name", "")
-            source_brand = details.get("brand_name", "")
-            
-            # Kategori eşleştirme (Fuzzy Match)
-            target_cat_id = None
-            if source_cat:
-                matches = difflib.get_close_matches(source_cat.lower(), cat_names, n=1, cutoff=0.5)
-                if matches:
-                    match_name = matches[0]
-                    target_cat_id = next((c.get("id") for c in target_categories if isinstance(c, dict) and (c.get("name") or c.get("displayName") or "").lower() == match_name), None)
-                    
-            if not target_cat_id and target_categories:
-                fallback_cat = next((c for c in target_categories if isinstance(c, dict) and "diğer" in (c.get("name") or c.get("displayName") or "").lower()), None)
-                if fallback_cat:
-                    target_cat_id = fallback_cat.get("id")
-                else:
-                    target_cat_id = target_categories[0].get("id") if len(target_categories) > 0 and isinstance(target_categories[0], dict) else None
-            
-            # Marka eşleştirme
-            target_brand_id = None
-            if source_brand:
-                b_matches = difflib.get_close_matches(source_brand.lower(), brand_names, n=1, cutoff=0.5)
-                if b_matches:
-                    b_match = b_matches[0]
-                    target_brand_id = next((b.get("id") for b in target_brands if isinstance(b, dict) and (b.get("name") or b.get("displayName") or "").lower() == b_match), None)
-            
-            if not target_brand_id and target_brands:
-                fallback_brand = next((b for b in target_brands if isinstance(b, dict) and "diğer" in (b.get("name") or b.get("displayName") or "").lower()), None)
-                if fallback_brand:
-                    target_brand_id = fallback_brand.get("id")
-                else:
-                transfer_results.append({"sku": sp.get("sku"), "name": sp.get("name"), "status": "error", "reason": err or "Detay alınamadı"})
-                continue
-                
-            sku = sp.get("sku")
             prod_price = float(details.get("price", 0.0))
             if prod_price <= 0:
                 prod_price = 199.90
