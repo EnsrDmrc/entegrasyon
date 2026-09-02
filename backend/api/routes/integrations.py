@@ -1874,3 +1874,34 @@ async def sync_stock(
     results_list = await asyncio.gather(*tasks)
     
     return {"message": "Stok senkronizasyonu tamamlandı", "results": dict(results_list)}
+
+@router.get("/hepsiburada-status")
+async def check_hb_status(task_id: str, db: AsyncSession = Depends(get_db)):
+    # Bu endpoint tamamen debug amaçlıdır
+    import httpx
+    import base64
+    
+    result = await db.execute(select(MarketplaceIntegration).where(MarketplaceIntegration.marketplace_name == 'hepsiburada'))
+    hb_int = result.scalars().first()
+    if not hb_int or not hb_int.api_key:
+        return {"error": "Hepsiburada entegrasyonu bulunamadı"}
+        
+    store_url = str(hb_int.store_url)
+    merchant_id = store_url.replace("|test", "")
+    api_key = str(hb_int.api_key)
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {base64.b64encode(f'{merchant_id}:{api_key}'.encode()).decode()}",
+        "User-Agent": "saygingrup_dev"
+    }
+    
+    url = f"https://listing-external-sit.hepsiburada.com/listings/merchantid/{merchant_id}/inventory-uploads/id/{task_id}"
+    try:
+        r = httpx.get(url, headers=headers)
+        try:
+            return {"status_code": r.status_code, "data": r.json()}
+        except:
+            return {"status_code": r.status_code, "text": r.text}
+    except Exception as e:
+        return {"error": str(e)}
