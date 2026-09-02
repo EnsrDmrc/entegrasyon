@@ -53,7 +53,8 @@ export default function SettingsPage() {
 
   const [hepsiburadaData, setHepsiburadaData] = useState({
     merchant_id: '',
-    api_key: ''
+    api_key: '',
+    is_test: false
   });
   const [hepsiburadaSyncing, setHepsiburadaSyncing] = useState(false);
   const [hepsiburadaOrderSyncing, setHepsiburadaOrderSyncing] = useState(false);
@@ -112,7 +113,11 @@ export default function SettingsPage() {
           }
           const hepsiburada = data.find(i => i.marketplace_name === 'hepsiburada');
           if (hepsiburada) {
-            setHepsiburadaData({ merchant_id: hepsiburada.store_url || '', api_key: '********' });
+            setHepsiburadaData({ 
+              merchant_id: hepsiburada.store_url?.replace('|test', '') || '', 
+              api_key: '********',
+              is_test: (hepsiburada.store_url || '').includes('|test')
+            });
           }
           const trendyol = data.find(i => i.marketplace_name === 'trendyol');
           if (trendyol) {
@@ -561,7 +566,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           marketplace_name: 'hepsiburada',
-          store_url: hepsiburadaData.merchant_id, // Merchant ID'yi store_url'e kaydediyoruz
+          store_url: hepsiburadaData.is_test ? `${hepsiburadaData.merchant_id}|test` : hepsiburadaData.merchant_id,
           api_key: hepsiburadaData.api_key.includes('*') ? undefined : hepsiburadaData.api_key,
           is_active: true
         })
@@ -1233,6 +1238,18 @@ export default function SettingsPage() {
                       onChange={(e) => setHepsiburadaData({...hepsiburadaData, api_key: e.target.value})}
                       required
                     />
+                  </div>
+                  
+                  <div className="input-group" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input 
+                      type="checkbox" 
+                      id="hb-test-mode"
+                      checked={hepsiburadaData.is_test}
+                      onChange={(e) => setHepsiburadaData({...hepsiburadaData, is_test: e.target.checked})}
+                    />
+                    <label htmlFor="hb-test-mode" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+                      Test (Sandbox / SIT) Ortamı Kullan
+                    </label>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
                     <button type="submit" className="btn btn-primary">Bilgileri Kaydet</button>

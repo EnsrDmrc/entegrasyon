@@ -42,7 +42,10 @@ async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, 
                 elif integration.marketplace_name == "trendyol" and integration.api_key and integration.api_secret and integration.store_url:
                     adapter = TrendyolAdapter(supplier_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
                 elif integration.marketplace_name == "hepsiburada" and integration.api_key and integration.store_url:
-                    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+                    store_url = str(integration.store_url)
+                    is_test = store_url.endswith("|test")
+                    real_merchant_id = store_url.replace("|test", "")
+                    adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(integration.api_key), is_test=is_test)
                 elif integration.marketplace_name == "pazarama" and integration.api_key and integration.store_url:
                     from services.marketplace import PazaramaAdapter
                     adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
@@ -692,7 +695,10 @@ async def sync_hepsiburada(background_tasks: BackgroundTasks, current_user: User
 
     from services.marketplace import HepsiburadaAdapter
     # api_key -> API Şifresi, store_url -> Merchant ID olarak maplendi
-    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+    store_url = str(integration.store_url)
+    is_test = store_url.endswith("|test")
+    real_merchant_id = store_url.replace("|test", "")
+    adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(integration.api_key), is_test=is_test)
     try:
         fetched_items = await asyncio.to_thread(adapter.fetch_all_products)
     except Exception as e:
@@ -773,7 +779,10 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Aktif Hepsiburada entegrasyonu bulunamadı.")
 
     from services.marketplace import HepsiburadaAdapter
-    adapter = HepsiburadaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key))
+    store_url = str(integration.store_url)
+    is_test = store_url.endswith("|test")
+    real_merchant_id = store_url.replace("|test", "")
+    adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(integration.api_key), is_test=is_test)
     try:
         fetched_orders = await asyncio.to_thread(adapter.fetch_orders)
     except Exception as e:

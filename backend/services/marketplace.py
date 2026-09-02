@@ -497,29 +497,28 @@ class N11Adapter(MarketplaceAdapter):
 import base64
 
 class HepsiburadaAdapter(MarketplaceAdapter):
-    def __init__(self, merchant_id: str, api_key: str):
+    def __init__(self, merchant_id: str, api_key: str, is_test: bool = False, user_agent: str = "saygingrup_dev"):
         self.merchant_id = merchant_id.strip()
         self.api_key = api_key.strip()
+        self.is_test = is_test
         
-        # Hepsiburada API'leri genellikle Basic Auth (Bazen Bearer) kullanır.
-        # Biz burada genel standart olan Basic veya Bearer modeline göre header ayarlıyoruz.
+        # Hepsiburada API'leri genellikle Basic Auth kullanır.
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Basic {base64.b64encode(f'{self.merchant_id}:{self.api_key}'.encode()).decode()}",
-            "User-Agent": "EntegrasyonApp/1.0"
+            "User-Agent": user_agent
         }
         
-        self.base_url_listing = "https://listing-external.hepsiburada.com/listings/merchantid"
-        self.base_url_order = "https://oms-external.hepsiburada.com/packages/merchantid"
+        if self.is_test:
+            self.base_url_listing = "https://listing-external-sit.hepsiburada.com/listings/merchantid"
+            self.base_url_order = "https://oms-external-sit.hepsiburada.com/packages/merchantid"
+        else:
+            self.base_url_listing = "https://listing-external.hepsiburada.com/listings/merchantid"
+            self.base_url_order = "https://oms-external.hepsiburada.com/packages/merchantid"
         
     def fetch_all_products(self) -> list:
-        # TEST (MOCK) MODU
-        if self.merchant_id.lower() == "test":
-            return [
-                {"sku": "HB-TEST-001", "name": "Hepsiburada Test Ürünü 1", "price": 250.0, "quantity": 15, "marketplace": "hepsiburada"},
-                {"sku": "HB-TEST-002", "name": "Hepsiburada Test Ürünü 2", "price": 499.99, "quantity": 3, "marketplace": "hepsiburada"}
-            ]
-            
+        # Eski MOCK modunu devre dışı bırakıyoruz, artık gerçek SIT ortamı var
+        
         fetched_variants = []
         try:
             with httpx.Client() as client:
@@ -552,23 +551,6 @@ class HepsiburadaAdapter(MarketplaceAdapter):
         return fetched_variants
 
     def fetch_orders(self) -> list:
-        # TEST (MOCK) MODU
-        if self.merchant_id.lower() == "test":
-            from datetime import datetime
-            return [
-                {
-                    "order_number": "HB-ORD-10001",
-                    "customer_name": "Test Müşteri Hepsiburada",
-                    "total_price": 749.99,
-                    "status": "Yeni Sipariş",
-                    "order_date": datetime.now().isoformat(),
-                    "items": [
-                        {"product_sku": "HB-TEST-001", "product_name": "Hepsiburada Test Ürünü 1", "quantity": 1, "price": 250.0},
-                        {"product_sku": "HB-TEST-002", "product_name": "Hepsiburada Test Ürünü 2", "quantity": 1, "price": 499.99}
-                    ]
-                }
-            ]
-            
         fetched_orders = []
         try:
             with httpx.Client() as client:
