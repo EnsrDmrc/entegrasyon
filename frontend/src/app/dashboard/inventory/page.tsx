@@ -96,7 +96,7 @@ function InventoryContent() {
         if (responseData.sync_results) {
             msg += "Senkronizasyon Sonuçları:\n";
             for (const [marketplace, result] of Object.entries(responseData.sync_results)) {
-                msg += `${marketplace.toUpperCase()}: ${(result as any).success ? 'Başarılı' : 'Başarısız (' + (result as any).message + ')'}\n`;
+                msg += `${marketplace.toUpperCase()}: ${(result as any).success ? 'Başarılı (' + (result as any).message + ')' : 'Başarısız (' + (result as any).message + ')'}\n`;
             }
         }
         alert(msg);
