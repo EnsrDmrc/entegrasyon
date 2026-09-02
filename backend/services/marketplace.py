@@ -611,16 +611,19 @@ class HepsiburadaAdapter(MarketplaceAdapter):
         success = True
         try:
             with httpx.Client() as client:
-                url = f"{self.base_url_listing}/{self.merchant_id}/sku/{sku}"
+                url = f"{self.base_url_listing}/{self.merchant_id}/inventory-uploads"
                 
-                payload = {
-                    "availableStock": int(new_stock) if new_stock is not None else 0,
-                    "price": float(new_price) if new_price is not None else 100.0,
-                    "dispatchTime": 2,
-                    "maximumPurchasableQuantity": max(1, min(int(new_stock) if new_stock is not None else 1, 10))
-                }
+                payload = [
+                    {
+                        "merchantSku": sku,
+                        "availableStock": int(new_stock) if new_stock is not None else 0,
+                        "price": float(new_price) if new_price is not None else 100.0,
+                        "maximumPurchasableQuantity": max(1, min(int(new_stock) if new_stock is not None else 1, 10)),
+                        "dispatchTime": 3
+                    }
+                ]
                     
-                response = client.put(url, headers=self.headers, json=payload)
+                response = client.post(url, headers=self.headers, json=payload)
                 
                 if response.status_code not in (200, 201, 202):
                     print(f"[Hepsiburada] Stok/Fiyat güncellenemedi ({sku}): {response.text}")
