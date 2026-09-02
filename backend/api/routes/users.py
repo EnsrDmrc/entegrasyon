@@ -125,6 +125,31 @@ async def update_product(
                 new_stock=data.quantity
             )
 
+        # Hepsiburada'ya Push Et
+        hb_result = await db.execute(
+            select(MarketplaceIntegration)
+            .where(
+                MarketplaceIntegration.tenant_id == current_user.tenant_id,
+                MarketplaceIntegration.marketplace_name == "hepsiburada",
+                MarketplaceIntegration.is_active == True
+            )
+        )
+        hb_int = hb_result.scalars().first()
+        
+        if hb_int and hb_int.api_key and hb_int.store_url:
+            from services.marketplace import HepsiburadaAdapter
+            store_url = str(hb_int.store_url)
+            is_test = store_url.endswith("|test")
+            real_merchant_id = store_url.replace("|test", "")
+            hb_adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(hb_int.api_key), is_test=is_test)
+            
+            await asyncio.to_thread(
+                hb_adapter.update_product,
+                sku=product.sku,
+                new_price=data.price,
+                new_stock=data.quantity
+            )
+
         # Pazarama'ya Push Et
         pazarama_result = await db.execute(
             select(MarketplaceIntegration)
