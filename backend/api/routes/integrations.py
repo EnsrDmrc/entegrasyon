@@ -831,6 +831,30 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
                     price=item["price"]
                 )
                 db.add(new_item)
+                
+                # Stok Düşürme (Deduction) Mantığı
+                # 1. İlgili ürünü SKU'ya göre bul
+                prod_res = await db.execute(
+                    select(Product).where(
+                        Product.sku == item["product_sku"],
+                        Product.tenant_id == current_user.tenant_id
+                    )
+                )
+                product_to_update = prod_res.scalars().first()
+                
+                if product_to_update:
+                    # 2. Bu ürüne ait tüm pazar yeri stoklarını (Inventory) düş
+                    inv_res = await db.execute(
+                        select(Inventory).where(Inventory.product_id == product_to_update.id)
+                    )
+                    inventories = inv_res.scalars().all()
+                    for inv in inventories:
+                        if inv.quantity >= item["quantity"]:
+                            inv.quantity -= item["quantity"]
+                        else:
+                            inv.quantity = 0 # Eksiye düşmemesi için
+                        db.add(inv)
+            
             await db.commit()
             order_sync_count += 1
         else:
