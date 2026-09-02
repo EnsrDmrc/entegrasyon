@@ -59,6 +59,9 @@ function InventoryContent() {
   }, []);
 
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [syncingSku, setSyncingSku] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ price: 0, stock: 0 });
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -139,6 +142,17 @@ function InventoryContent() {
         </button>
       </div>
 
+      {success && (
+        <div className="badge badge-green" style={{ marginBottom: '1rem', display: 'block', padding: '1rem' }}>
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="badge badge-red" style={{ marginBottom: '1rem', display: 'block', padding: '1rem' }}>
+          {error}
+        </div>
+      )}
+
       <div className="table-container animate-fade-in">
         <div className="table-header-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <input 
@@ -210,12 +224,50 @@ function InventoryContent() {
                   </td>
                   <td style={{ fontWeight: 600 }}>{product.stock}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <button 
-                      className="btn btn-sm btn-secondary" 
-                      onClick={() => openEditModal(product)}
-                    >
-                      Düzenle
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}
+                        disabled={syncingSku === product.sku}
+                        onClick={async () => {
+                          setSyncingSku(product.sku);
+                          setError(null);
+                          setSuccess(null);
+                          try {
+                            const token = localStorage.getItem('token');
+                            const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync-stock`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                              body: JSON.stringify({ sku: product.sku, new_stock: product.stock, new_price: product.price })
+                            });
+                            const data = await response.json();
+                            if (!response.ok) throw new Error(data.detail || 'Senkronizasyon hatası');
+                            
+                            let msg = "Senkronizasyon Raporu:\n";
+                            if (data.results) {
+                              for (const [marketplace, result] of Object.entries(data.results)) {
+                                msg += `${marketplace.toUpperCase()}: ${result === true ? 'Başarılı' : 'Başarısız (' + result + ')'}\n`;
+                              }
+                            }
+                            setSuccess(msg);
+                            setTimeout(() => setSuccess(null), 10000);
+                          } catch(err: any) {
+                            setError(err.message);
+                            setTimeout(() => setError(null), 5000);
+                          } finally {
+                            setSyncingSku(null);
+                          }
+                        }}
+                      >
+                        {syncingSku === product.sku ? 'Aktarılıyor...' : 'Senkronize Et'}
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-secondary" 
+                        onClick={() => openEditModal(product)}
+                      >
+                        Düzenle
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -1808,3 +1808,69 @@ async def get_pazarama_brands(
         return brands
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class SyncStockRequest(BaseModel):
+    sku: str
+    new_stock: int
+    new_price: float = None
+
+@router.post("/sync-stock")
+async def sync_stock(
+    request: SyncStockRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from services.marketplace import ShopifyAdapter, N11Adapter, TrendyolAdapter, HepsiburadaAdapter
+    from models.inventory import Inventory
+    from models.product import Product
+    
+    # 1. Kendi veritabanımızdaki stoğu güncelle
+    inv_result = await db.execute(
+        select(Inventory).where(
+            Inventory.product_id.in_(
+                select(Product.id).where(
+                    Product.sku == request.sku, 
+                    Product.tenant_id == current_user.tenant_id
+                )
+            )
+        )
+    )
+    inventories = inv_result.scalars().all()
+    for inv in inventories:
+        inv.quantity = request.new_stock
+    await db.commit()
+    
+    # 2. Aktif entegrasyonları bul
+    result = await db.execute(
+        select(MarketplaceIntegration).where(
+            MarketplaceIntegration.tenant_id == current_user.tenant_id,
+            MarketplaceIntegration.is_active == True
+        )
+    )
+    integrations = result.scalars().all()
+    
+    async def update_marketplace(integration):
+        try:
+            adapter = None
+            if integration.marketplace_name == "hepsiburada" and integration.store_url and integration.api_key:
+                store_url = str(integration.store_url)
+                is_test = store_url.endswith("|test")
+                real_merchant_id = store_url.replace("|test", "")
+                adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(integration.api_key), is_test=is_test)
+                
+            if adapter and hasattr(adapter, 'update_product'):
+                success = await asyncio.to_thread(
+                    adapter.update_product, 
+                    sku=request.sku, 
+                    new_price=request.new_price, 
+                    new_stock=request.new_stock
+                )
+                return integration.marketplace_name, success
+            return integration.marketplace_name, False
+        except Exception as e:
+            return integration.marketplace_name, str(e)
+            
+    tasks = [update_marketplace(integ) for integ in integrations]
+    results_list = await asyncio.gather(*tasks)
+    
+    return {"message": "Stok senkronizasyonu tamamlandı", "results": dict(results_list)}
