@@ -61,7 +61,6 @@ function InventoryContent() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [syncingSku, setSyncingSku] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ price: 0, stock: 0 });
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -92,7 +91,15 @@ function InventoryContent() {
       });
       
       if (response.ok) {
-        alert("Ürün başarıyla güncellendi ve Pazaryerlerine senkronize edildi!");
+        const responseData = await response.json();
+        let msg = "Ürün başarıyla güncellendi!\n\n";
+        if (responseData.sync_results) {
+            msg += "Senkronizasyon Sonuçları:\n";
+            for (const [marketplace, result] of Object.entries(responseData.sync_results)) {
+                msg += `${marketplace.toUpperCase()}: ${(result as any).success ? 'Başarılı' : 'Başarısız (' + (result as any).message + ')'}\n`;
+            }
+        }
+        alert(msg);
         closeEditModal();
         fetchProducts(); // Değişikliği veritabanından çekip UI'a yansıt
       } else {
@@ -225,42 +232,6 @@ function InventoryContent() {
                   <td style={{ fontWeight: 600 }}>{product.stock}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button 
-                        className="btn btn-secondary" 
-                        style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}
-                        disabled={syncingSku === product.sku}
-                        onClick={async () => {
-                          setSyncingSku(product.sku);
-                          setError(null);
-                          setSuccess(null);
-                          try {
-                            const token = localStorage.getItem('token');
-                            const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/integrations/sync-stock`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                              body: JSON.stringify({ sku: product.sku, new_stock: product.stock, new_price: product.price })
-                            });
-                            const data = await response.json();
-                            if (!response.ok) throw new Error(data.detail || 'Senkronizasyon hatası');
-                            
-                            let msg = "Senkronizasyon Raporu:\n";
-                            if (data.results) {
-                              for (const [marketplace, result] of Object.entries(data.results)) {
-                                msg += `${marketplace.toUpperCase()}: ${result === true ? 'Başarılı' : 'Başarısız (' + result + ')'}\n`;
-                              }
-                            }
-                            setSuccess(msg);
-                            setTimeout(() => setSuccess(null), 10000);
-                          } catch(err: any) {
-                            setError(err.message);
-                            setTimeout(() => setError(null), 5000);
-                          } finally {
-                            setSyncingSku(null);
-                          }
-                        }}
-                      >
-                        {syncingSku === product.sku ? 'Aktarılıyor...' : 'Senkronize Et'}
-                      </button>
                       <button 
                         className="btn btn-sm btn-secondary" 
                         onClick={() => openEditModal(product)}

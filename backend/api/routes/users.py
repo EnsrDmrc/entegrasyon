@@ -125,6 +125,8 @@ async def update_product(
                 new_stock=data.quantity
             )
 
+        sync_results = {}
+        
         # Hepsiburada'ya Push Et
         hb_result = await db.execute(
             select(MarketplaceIntegration)
@@ -143,12 +145,16 @@ async def update_product(
             real_merchant_id = store_url.replace("|test", "")
             hb_adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(hb_int.api_key), is_test=is_test)
             
-            await asyncio.to_thread(
-                hb_adapter.update_product,
-                sku=product.sku,
-                new_price=data.price,
-                new_stock=data.quantity
-            )
+            try:
+                hb_success, hb_msg = await asyncio.to_thread(
+                    hb_adapter.update_product,
+                    sku=product.sku,
+                    new_price=data.price,
+                    new_stock=data.quantity
+                )
+                sync_results["hepsiburada"] = {"success": hb_success, "message": str(hb_msg)}
+            except Exception as e:
+                sync_results["hepsiburada"] = {"success": False, "message": str(e)}
 
         # Pazarama'ya Push Et
         pazarama_result = await db.execute(
@@ -190,7 +196,7 @@ async def update_product(
             else:
                 print(f"[Pazarama] Kategori/Marka ID bulunamadığı için atlandı: {product.sku}")
 
-    return {"message": "Ürün başarıyla güncellendi"}
+    return {"message": "Ürün başarıyla güncellendi", "sync_results": sync_results}
 
 @router.get("/debug-pazarama")
 async def debug_pazarama(sku: str, stock: int, db: AsyncSession = Depends(get_db)):

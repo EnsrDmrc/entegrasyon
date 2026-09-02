@@ -625,17 +625,20 @@ class HepsiburadaAdapter(MarketplaceAdapter):
                     payload["listings"][0]["price"] = float(new_price)
                 if new_stock is not None:
                     payload["listings"][0]["availableInventory"] = int(new_stock)
+                    payload["listings"][0]["maximumPurchasableQuantity"] = max(1, min(int(new_stock), 10))
+                    payload["listings"][0]["dispatchTime"] = 2
                     
                 response = client.post(url, headers=self.headers, json=payload)
                 
                 if response.status_code not in (200, 201, 202):
                     print(f"[Hepsiburada] Stok/Fiyat güncellenemedi ({sku}): {response.text}")
-                    success = False
+                    return False, f"HTTP {response.status_code}: {response.text}"
+                return True, response.text
         except Exception as e:
             print(f"[Hepsiburada] API Hatası: {e}")
-            success = False
+            return False, str(e)
             
-        return success
+        return success, "Bilinmeyen durum"
 
     def get_product_details(self, sku: str) -> dict:
         return {"sku": sku, "name": "Hepsiburada Ürünü", "price": 0.0}
