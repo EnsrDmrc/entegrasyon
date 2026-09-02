@@ -607,28 +607,20 @@ class HepsiburadaAdapter(MarketplaceAdapter):
             
         return fetched_orders
 
-    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> bool:
+    def update_product(self, sku: str, new_price: float = None, new_stock: int = None) -> tuple[bool, str]:
         success = True
         try:
             with httpx.Client() as client:
-                url = f"{self.base_url_listing}/{self.merchant_id}/inventory-and-price"
+                url = f"{self.base_url_listing}/{self.merchant_id}/sku/{sku}"
                 
                 payload = {
-                    "listings": [
-                        {
-                            "merchantSku": sku
-                        }
-                    ]
+                    "availableStock": int(new_stock) if new_stock is not None else 0,
+                    "price": float(new_price) if new_price is not None else 100.0,
+                    "dispatchTime": 2,
+                    "maximumPurchasableQuantity": max(1, min(int(new_stock) if new_stock is not None else 1, 10))
                 }
-                
-                if new_price is not None:
-                    payload["listings"][0]["price"] = float(new_price)
-                if new_stock is not None:
-                    payload["listings"][0]["availableInventory"] = int(new_stock)
-                    payload["listings"][0]["maximumPurchasableQuantity"] = max(1, min(int(new_stock), 10))
-                    payload["listings"][0]["dispatchTime"] = 2
                     
-                response = client.post(url, headers=self.headers, json=payload)
+                response = client.put(url, headers=self.headers, json=payload)
                 
                 if response.status_code not in (200, 201, 202):
                     print(f"[Hepsiburada] Stok/Fiyat güncellenemedi ({sku}): {response.text}")
