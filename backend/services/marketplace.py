@@ -505,6 +505,7 @@ class HepsiburadaAdapter(MarketplaceAdapter):
         # Hepsiburada API'leri genellikle Basic Auth kullanır.
         self.headers = {
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "Authorization": f"Basic {base64.b64encode(f'{self.merchant_id}:{self.api_key}'.encode()).decode()}",
             "User-Agent": user_agent
         }
@@ -615,6 +616,7 @@ class HepsiburadaAdapter(MarketplaceAdapter):
                 
                 payload = [
                     {
+                        "hepsiburadaSku": "",
                         "merchantSku": sku,
                         "availableStock": int(new_stock) if new_stock is not None else 0,
                         "price": float(new_price) if new_price is not None else 100.0,
