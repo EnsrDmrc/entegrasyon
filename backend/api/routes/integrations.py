@@ -67,6 +67,60 @@ async def push_price_updates_to_others(tenant_id: int, origin_marketplace: str, 
             except Exception as e:
                 print(f"[Price Sync Error] Failed to push to {integration.marketplace_name}: {e}")
 
+async def push_stock_updates_to_others(tenant_id: int, origin_marketplace: str, modified_stocks: list):
+    """
+    modified_stocks format: [(sku, new_stock_quantity), ...]
+    """
+    if not modified_stocks: return
+    
+    from core.database import AsyncSessionLocal
+    from services.marketplace import ShopifyAdapter, N11Adapter, TrendyolAdapter, HepsiburadaAdapter
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(MarketplaceIntegration)
+            .where(MarketplaceIntegration.tenant_id == tenant_id, MarketplaceIntegration.is_active == True)
+        )
+        integrations = result.scalars().all()
+        
+        for integration in integrations:
+            if integration.marketplace_name == origin_marketplace:
+                continue
+                
+            adapter = None
+            try:
+                if integration.marketplace_name == "shopify" and integration.api_key and integration.store_url:
+                    adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
+                elif integration.marketplace_name == "n11" and integration.api_key and integration.api_secret:
+                    adapter = N11Adapter(api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+                elif integration.marketplace_name == "trendyol" and integration.api_key and integration.api_secret and integration.store_url:
+                    adapter = TrendyolAdapter(supplier_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret))
+                elif integration.marketplace_name == "hepsiburada" and integration.api_key and integration.store_url:
+                    store_url = str(integration.store_url)
+                    is_test = store_url.endswith("|test")
+                    real_merchant_id = store_url.replace("|test", "")
+                    adapter = HepsiburadaAdapter(merchant_id=real_merchant_id, api_key=str(integration.api_key), is_test=is_test)
+                elif integration.marketplace_name == "pazarama" and integration.api_key and integration.store_url:
+                    from services.marketplace import PazaramaAdapter
+                    adapter = PazaramaAdapter(merchant_id=str(integration.store_url), api_key=str(integration.api_key), api_secret=str(integration.api_secret) if integration.api_secret else None)
+                elif integration.marketplace_name == "amazon" and integration.api_key and integration.store_url:
+                    from core.config import settings
+                    from services.marketplace import AmazonAdapter
+                    adapter = AmazonAdapter(
+                        refresh_token=str(integration.api_key),
+                        seller_id=str(integration.store_url),
+                        region=str(integration.api_secret) or "EU",
+                        lwa_client_id=settings.AMAZON_LWA_CLIENT_ID,
+                        lwa_client_secret=settings.AMAZON_LWA_CLIENT_SECRET
+                    )
+                    
+                if adapter:
+                    for sku, new_stock in modified_stocks:
+                        await asyncio.to_thread(adapter.update_product, sku, new_stock=new_stock)
+                        print(f"[Stock Sync] Pushed stock {new_stock} for {sku} to {integration.marketplace_name}")
+            except Exception as e:
+                print(f"[Stock Sync Error] Failed to push to {integration.marketplace_name}: {e}")
+
 @router.get("/active")
 async def get_active_integrations(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Aktif entegrasyonları döndürür."""
@@ -792,6 +846,7 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
     from dateutil import parser
     
     order_sync_count = 0
+    modified_stocks = []
     for ord_data in fetched_orders:
         ord_result = await db.execute(
             select(Order).where(
@@ -854,6 +909,7 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
                         else:
                             inv.quantity = 0 # Eksiye düşmemesi için
                         db.add(inv)
+                        modified_stocks.append((item["product_sku"], inv.quantity))
             
             await db.commit()
             order_sync_count += 1
@@ -863,6 +919,12 @@ async def sync_hepsiburada_orders(current_user: User = Depends(get_current_user)
                 db.add(existing_order)
                 await db.commit()
                 order_sync_count += 1
+
+    if modified_stocks:
+        from fastapi import BackgroundTasks
+        # Eger background_tasks parametresi yoksa mevcut taska manual cagri veya run in background
+        # Burada sadece bir thread oluşturabiliriz veya BackgroundTasks ekleyebiliriz
+        asyncio.create_task(push_stock_updates_to_others(current_user.tenant_id, "hepsiburada", modified_stocks))
 
     return {
         "message": "Hepsiburada Siparişleri başarıyla çekildi", 
@@ -1980,6 +2042,7 @@ async def simulate_hepsiburada_order(sku: str, quantity: int = 1, db: AsyncSessi
     )
     inventories = inv_res.scalars().all()
     deducted = False
+    modified_stocks = []
     for inv in inventories:
         if inv.quantity >= quantity:
             inv.quantity -= quantity
@@ -1987,8 +2050,12 @@ async def simulate_hepsiburada_order(sku: str, quantity: int = 1, db: AsyncSessi
             inv.quantity = 0
         db.add(inv)
         deducted = True
+        modified_stocks.append((sku, inv.quantity))
         
     await db.commit()
+    
+    if modified_stocks:
+        asyncio.create_task(push_stock_updates_to_others(tenant_id, "hepsiburada", modified_stocks))
     
     return {
         "message": "Simülasyon başarılı. Sipariş oluşturuldu ve stok düşüldü.",
