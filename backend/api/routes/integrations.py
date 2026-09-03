@@ -1931,7 +1931,7 @@ async def check_hb_status(task_id: str, db: AsyncSession = Depends(get_db)):
         return {"error": str(e)}
 
 @router.post("/simulate/hepsiburada/order")
-async def simulate_hepsiburada_order(sku: str, quantity: int = 1, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def simulate_hepsiburada_order(sku: str, quantity: int = 1, db: AsyncSession = Depends(get_db)):
     from models.order import Order, OrderItem
     from models.product import Product
     from models.inventory import Inventory
@@ -1943,15 +1943,17 @@ async def simulate_hepsiburada_order(sku: str, quantity: int = 1, current_user: 
     
     # 2. Ürünü bul
     prod_res = await db.execute(
-        select(Product).where(Product.sku == sku, Product.tenant_id == current_user.tenant_id)
+        select(Product).where(Product.sku == sku)
     )
     product = prod_res.scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail="Bu SKU ile ürün bulunamadı.")
         
+    tenant_id = product.tenant_id
+        
     # 3. Siparişi oluştur
     new_order = Order(
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         marketplace="hepsiburada",
         order_number=fake_order_number,
         customer_name="Simülasyon Müşterisi",
