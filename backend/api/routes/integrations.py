@@ -1929,3 +1929,68 @@ async def check_hb_status(task_id: str, db: AsyncSession = Depends(get_db)):
             return {"status_code": r.status_code, "text": r.text}
     except Exception as e:
         return {"error": str(e)}
+
+@router.post("/simulate/hepsiburada/order")
+async def simulate_hepsiburada_order(sku: str, quantity: int = 1, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from models.order import Order, OrderItem
+    from models.product import Product
+    from models.inventory import Inventory
+    import uuid
+    from datetime import datetime
+    
+    # 1. Fake Order Data
+    fake_order_number = f"HB-SIM-{str(uuid.uuid4())[:8]}"
+    
+    # 2. Ürünü bul
+    prod_res = await db.execute(
+        select(Product).where(Product.sku == sku, Product.tenant_id == current_user.tenant_id)
+    )
+    product = prod_res.scalars().first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Bu SKU ile ürün bulunamadı.")
+        
+    # 3. Siparişi oluştur
+    new_order = Order(
+        tenant_id=current_user.tenant_id,
+        marketplace="hepsiburada",
+        order_number=fake_order_number,
+        customer_name="Simülasyon Müşterisi",
+        total_price=product.price * quantity,
+        status="Yeni Sipariş",
+        order_date=datetime.now()
+    )
+    db.add(new_order)
+    await db.commit()
+    await db.refresh(new_order)
+    
+    new_item = OrderItem(
+        order_id=new_order.id,
+        product_sku=sku,
+        product_name=product.name,
+        quantity=quantity,
+        price=product.price
+    )
+    db.add(new_item)
+    
+    # 4. Stok Düşürme Mantığı (sync_hepsiburada_orders ile birebir aynı)
+    inv_res = await db.execute(
+        select(Inventory).where(Inventory.product_id == product.id)
+    )
+    inventories = inv_res.scalars().all()
+    deducted = False
+    for inv in inventories:
+        if inv.quantity >= quantity:
+            inv.quantity -= quantity
+        else:
+            inv.quantity = 0
+        db.add(inv)
+        deducted = True
+        
+    await db.commit()
+    
+    return {
+        "message": "Simülasyon başarılı. Sipariş oluşturuldu ve stok düşüldü.",
+        "order_number": fake_order_number,
+        "deducted_quantity": quantity if deducted else 0,
+        "sku": sku
+    }
