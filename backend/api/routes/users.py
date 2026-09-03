@@ -95,15 +95,20 @@ async def update_product(
         )
         integration = int_result.scalars().first()
 
+        sync_results = {}
+
         if integration and integration.api_key and integration.store_url:
             adapter = ShopifyAdapter(api_key=str(integration.api_key), store_url=str(integration.store_url))
-            # Hata yapsa bile bizim DB'miz güncellendi, sadece logluyoruz
-            await asyncio.to_thread(
-                adapter.update_product,
-                sku=product.sku, 
-                new_price=data.price, 
-                new_stock=data.quantity
-            )
+            try:
+                await asyncio.to_thread(
+                    adapter.update_product,
+                    sku=product.sku, 
+                    new_price=data.price, 
+                    new_stock=data.quantity
+                )
+                sync_results["shopify"] = {"success": True, "message": "Başarılı"}
+            except Exception as e:
+                sync_results["shopify"] = {"success": False, "message": str(e)}
             
         # N11'e Push Et
         n11_result = await db.execute(
@@ -118,15 +123,16 @@ async def update_product(
         
         if n11_int and n11_int.api_key and n11_int.api_secret:
             n11_adapter = N11Adapter(api_key=str(n11_int.api_key), api_secret=str(n11_int.api_secret))
-            await asyncio.to_thread(
-                n11_adapter.update_product,
-                sku=product.sku,
-                new_price=data.price,
-                new_stock=data.quantity
-            )
-
-        sync_results = {}
-        
+            try:
+                await asyncio.to_thread(
+                    n11_adapter.update_product,
+                    sku=product.sku,
+                    new_price=data.price,
+                    new_stock=data.quantity
+                )
+                sync_results["n11"] = {"success": True, "message": "Başarılı"}
+            except Exception as e:
+                sync_results["n11"] = {"success": False, "message": str(e)}
         # Hepsiburada'ya Push Et
         hb_result = await db.execute(
             select(MarketplaceIntegration)
@@ -170,31 +176,16 @@ async def update_product(
         if pazarama_int and pazarama_int.api_key and pazarama_int.store_url:
             from services.marketplace import PazaramaAdapter
             p_adapter = PazaramaAdapter(merchant_id=str(pazarama_int.store_url), api_key=str(pazarama_int.api_key), api_secret=str(pazarama_int.api_secret) if pazarama_int.api_secret else None)
-            
-            # Pazarama sadece ürün ekleme servisiyle (upsert) fiyat/stok güncelleyebiliyor
-            import json
-            product_data = {
-                "name": product.name,
-                "description": getattr(product, "description", product.name),
-                "sku": product.sku,
-                "stock": data.quantity,
-                "price": data.price,
-                "images": json.loads(product.images_json) if getattr(product, "images_json", None) else [{"imageurl": "https://via.placeholder.com/500"}]
-            }
-            
-            target_category_id = str(getattr(product, "pazarama_category_id") or "")
-            target_brand_id = str(getattr(product, "pazarama_brand_id") or "")
-            
-            if target_category_id and target_category_id != "0" and target_brand_id and target_brand_id != "0":
-                await asyncio.to_thread(
-                    p_adapter.create_product,
-                    product_data=product_data,
-                    target_category_id=target_category_id,
-                    target_brand_id=target_brand_id,
-                    vat_rate=20
+            try:
+                p_success = await asyncio.to_thread(
+                    p_adapter.update_product,
+                    sku=product.sku,
+                    new_price=data.price,
+                    new_stock=data.quantity
                 )
-            else:
-                print(f"[Pazarama] Kategori/Marka ID bulunamadığı için atlandı: {product.sku}")
+                sync_results["pazarama"] = {"success": p_success, "message": "İstek gönderildi" if p_success else "Hata"}
+            except Exception as e:
+                sync_results["pazarama"] = {"success": False, "message": str(e)}
 
     return {"message": "Ürün başarıyla güncellendi", "sync_results": sync_results}
 
