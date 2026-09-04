@@ -999,37 +999,41 @@ class PazaramaAdapter(MarketplaceAdapter):
         
         # Sadece Stok Güncellemesi
         if new_stock is not None:
-            stock_payload = [
-                {
-                    "Code": sku,
-                    "StockCount": int(new_stock)
-                }
-            ]
+            stock_payload = {
+                "items": [
+                    {
+                        "code": sku,
+                        "stockCount": int(new_stock)
+                    }
+                ]
+            }
             try:
-                resp = httpx.post("https://isortagimapi.pazarama.com/product/updateStock", json=stock_payload, headers=headers, timeout=15.0)
-                print(f"[Pazarama UpdateStock] {resp.status_code} - {resp.text[:200]}")
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/updateStock-v2", json=stock_payload, headers=headers, timeout=15.0)
+                print(f"[Pazarama UpdateStock v2] {resp.status_code} - {resp.text[:200]}")
                 if resp.status_code not in [200, 201, 202]:
                     success = False
             except Exception as e:
-                print(f"[Pazarama UpdateStock Error] {e}")
+                print(f"[Pazarama UpdateStock v2 Error] {e}")
                 success = False
                 
         # Sadece Fiyat Güncellemesi
         if new_price is not None:
-            price_payload = [
-                {
-                    "Code": sku,
-                    "ListPrice": float(new_price),
-                    "SalePrice": float(new_price)
-                }
-            ]
+            price_payload = {
+                "items": [
+                    {
+                        "code": sku,
+                        "listPrice": float(new_price),
+                        "salePrice": float(new_price)
+                    }
+                ]
+            }
             try:
-                resp = httpx.post("https://isortagimapi.pazarama.com/product/updatePrice", json=price_payload, headers=headers, timeout=15.0)
-                print(f"[Pazarama UpdatePrice] {resp.status_code} - {resp.text[:200]}")
+                resp = httpx.post("https://isortagimapi.pazarama.com/product/updatePrice-v2", json=price_payload, headers=headers, timeout=15.0)
+                print(f"[Pazarama UpdatePrice v2] {resp.status_code} - {resp.text[:200]}")
                 if resp.status_code not in [200, 201, 202]:
                     success = False
             except Exception as e:
-                print(f"[Pazarama UpdatePrice Error] {e}")
+                print(f"[Pazarama UpdatePrice v2 Error] {e}")
                 success = False
 
         return success
