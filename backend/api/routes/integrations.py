@@ -2166,7 +2166,7 @@ async def simulate_pazarama_order(sku: str, quantity: int, background_tasks: Bac
     oluşturarak sistemi test etmemizi sağlar. 
     """
     try:
-        from models.tenant import MarketplaceIntegration
+        from models.integration import MarketplaceIntegration
         from models.product import Product
         from models.order import Order, OrderItem
         import uuid
