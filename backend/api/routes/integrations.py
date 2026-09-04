@@ -2135,12 +2135,15 @@ async def sync_pazarama_orders(background_tasks: BackgroundTasks, current_user: 
                 db.add(new_item)
                 
                 # Stoktan düş!
-                prod_res = await db.execute(select(Product).where(Product.sku == item["product_sku"], Product.tenant_id == current_user.tenant_id))
-                product = prod_res.scalars().first()
-                if product:
-                    product.stock_quantity = max(0, product.stock_quantity - item["quantity"])
-                    db.add(product)
-                    modified_stocks.append((product.sku, product.stock_quantity))
+                inv_res = await db.execute(select(Inventory).where(Inventory.product_id == product.id))
+                inventories = inv_res.scalars().all()
+                for inv in inventories:
+                    if inv.quantity >= item["quantity"]:
+                        inv.quantity -= item["quantity"]
+                    else:
+                        inv.quantity = 0
+                    db.add(inv)
+                    modified_stocks.append((product.sku, inv.quantity))
                     
             await db.commit()
             order_sync_count += 1
@@ -2214,19 +2217,28 @@ async def simulate_pazarama_order(sku: str, quantity: int, background_tasks: Bac
         db.add(new_item)
         
         # 5. Stoğu düş!
-        product.stock_quantity = max(0, product.stock_quantity - quantity)
-        db.add(product)
+        inv_res = await db.execute(select(Inventory).where(Inventory.product_id == product.id))
+        inventories = inv_res.scalars().all()
+        deducted_qty = 0
+        for inv in inventories:
+            if inv.quantity >= quantity:
+                inv.quantity -= quantity
+            else:
+                inv.quantity = 0
+            db.add(inv)
+            deducted_qty = inv.quantity
+            
         await db.commit()
         
         # 6. Diğer pazaryerlerine (Shopify, N11, HB) bildir
-        modified_stocks = [(product.sku, product.stock_quantity)]
+        modified_stocks = [(product.sku, deducted_qty)]
         background_tasks.add_task(push_stock_updates_to_others, integration.tenant_id, "pazarama", modified_stocks)
         
         return {
             "message": "Sahte Pazarama Siparişi simüle edildi ve stok düşüldü! Diğer kanallara (Shopify, N11, HB) aktarılıyor...",
             "order_number": fake_order_no,
             "deducted_sku": product.sku,
-            "remaining_stock": product.stock_quantity
+            "remaining_stock": deducted_qty
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
