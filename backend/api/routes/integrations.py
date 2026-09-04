@@ -2055,7 +2055,7 @@ async def simulate_hepsiburada_order(sku: str, quantity: int = 1, db: AsyncSessi
     await db.commit()
     
     if modified_stocks:
-        asyncio.create_task(push_stock_updates_to_others(tenant_id, "hepsiburada", modified_stocks))
+        asyncio.create_task(push_stock_updates_to_others(tenant_id, "simulation", modified_stocks))
     
     return {
         "message": "Simülasyon başarılı. Sipariş oluşturuldu ve stok düşüldü.",
@@ -2230,9 +2230,9 @@ async def simulate_pazarama_order(sku: str, quantity: int, background_tasks: Bac
             
         await db.commit()
         
-        # 6. Diğer pazaryerlerine (Shopify, N11, HB) bildir
+        # 6. Diğer tüm pazaryerlerine (Shopify, N11, HB, Pazarama vb.) bildir
         modified_stocks = [(product.sku, deducted_qty)]
-        background_tasks.add_task(push_stock_updates_to_others, integration.tenant_id, "pazarama", modified_stocks)
+        background_tasks.add_task(push_stock_updates_to_others, integration.tenant_id, "simulation", modified_stocks)
         
         return {
             "message": "Sahte Pazarama Siparişi simüle edildi ve stok düşüldü! Diğer kanallara (Shopify, N11, HB) aktarılıyor...",
