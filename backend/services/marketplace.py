@@ -1099,6 +1099,122 @@ class PazaramaAdapter(MarketplaceAdapter):
         except Exception as e:
             raise Exception(f"Pazarama'ya ürün aktarılırken hata oluştu: {str(e)}")
 
+    def fetch_orders(self, start_date: str = None, end_date: str = None) -> list:
+        if not self.token:
+            self._get_token()
+            
+        import httpx
+        from datetime import datetime, timedelta
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        if not start_date:
+            # Son 3 günü getir
+            start_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+        if not end_date:
+            end_date = datetime.now().strftime("%Y-%m-%d")
+            
+        payload = {
+            "pageSize": 500,
+            "pageNumber": 1,
+            "startDate": start_date,
+            "endDate": end_date
+        }
+        
+        fetched_orders = []
+        try:
+            resp = httpx.post("https://isortagimapi.pazarama.com/order/getOrdersForApi", headers=headers, json=payload, timeout=30.0)
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                for pkg in data:
+                    order_number = pkg.get("orderNumber")
+                    if not order_number: continue
+                    
+                    customer_name = pkg.get("customerName", "Pazarama Müşterisi")
+                    
+                    items = []
+                    total_price = 0.0
+                    
+                    for item in pkg.get("items", []):
+                        prod = item.get("product", {})
+                        sku = prod.get("code") or prod.get("stockCode") or "PZ-UNKNOWN"
+                        name = prod.get("name") or "Pazarama Ürünü"
+                        qty = item.get("quantity", 1)
+                        # Pazarama uses a nested listPrice / salePrice object format: "salePrice": {"value": 7}
+                        sp_obj = item.get("salePrice", {})
+                        price = float(sp_obj.get("value", 0.0))
+                        
+                        total_price += price * qty
+                        
+                        items.append({
+                            "product_sku": sku,
+                            "product_name": name,
+                            "quantity": qty,
+                            "price": price,
+                            "order_item_id": item.get("orderItemId"),
+                            "status": item.get("orderItemStatus")
+                        })
+                        
+                    raw_status = pkg.get("orderStatus", 3)
+                    status_map = {
+                        3: "Yeni Sipariş",
+                        12: "Hazırlanıyor",
+                        13: "Tedarik Edilemedi",
+                        5: "Kargoya Verildi",
+                        11: "Teslim Edildi",
+                        14: "Teslim Edilemedi",
+                        6: "İptal Edildi",
+                        8: "İade Onaylandı"
+                    }
+                    
+                    fetched_orders.append({
+                        "order_number": str(order_number),
+                        "customer_name": customer_name,
+                        "total_price": total_price,
+                        "status": status_map.get(raw_status, str(raw_status)),
+                        "order_date": pkg.get("orderDate"),
+                        "items": items
+                    })
+            else:
+                print(f"[Pazarama] Sipariş çekilemedi: {resp.status_code} - {resp.text[:200]}")
+        except Exception as e:
+            print(f"[Pazarama] fetch_orders hatası: {e}")
+            
+        return fetched_orders
+
+    def update_order_status(self, order_number: int, order_item_id: str, new_status: int) -> bool:
+        if not self.token:
+            self._get_token()
+            
+        import httpx
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        payload = {
+            "orderNumber": int(order_number),
+            "item": {
+                "orderItemId": order_item_id,
+                "status": int(new_status)
+            }
+        }
+        
+        try:
+            resp = httpx.put("https://isortagimapi.pazarama.com/order/updateOrderStatus", headers=headers, json=payload, timeout=15.0)
+            if resp.status_code in (200, 201, 202, 204):
+                return True
+            else:
+                print(f"[Pazarama] Sipariş durumu güncellenemedi: {resp.text[:200]}")
+                return False
+        except Exception as e:
+            print(f"[Pazarama] update_order_status hatası: {e}")
+            return False
+
     def create_products_bulk(self, products_payload: list) -> dict:
         if not self.token:
             self._get_token()
