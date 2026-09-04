@@ -2160,7 +2160,7 @@ async def sync_pazarama_orders(background_tasks: BackgroundTasks, current_user: 
     }
 
 @router.post("/simulate/pazarama/order")
-async def simulate_pazarama_order(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def simulate_pazarama_order(sku: str, quantity: int, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """
     Bu endpoint gerçek dışı sahte bir Pazarama siparişi
     oluşturarak sistemi test etmemizi sağlar. 
@@ -2181,11 +2181,11 @@ async def simulate_pazarama_order(background_tasks: BackgroundTasks, db: AsyncSe
         if not integration:
             raise HTTPException(status_code=400, detail="Pazarama entegrasyonu bulunamadı.")
             
-        # 2. Test için bir ürün bul
-        prod_res = await db.execute(select(Product).where(Product.tenant_id == integration.tenant_id))
+        # 2. Test için belirtilen ürünü bul
+        prod_res = await db.execute(select(Product).where(Product.tenant_id == integration.tenant_id, Product.sku == sku))
         product = prod_res.scalars().first()
         if not product:
-            raise HTTPException(status_code=400, detail="Test için veritabanında ürün bulunamadı.")
+            raise HTTPException(status_code=400, detail="Belirtilen SKU ile veritabanında ürün bulunamadı.")
             
         # 3. Sahte Sipariş Oluştur
         import random
@@ -2196,7 +2196,7 @@ async def simulate_pazarama_order(background_tasks: BackgroundTasks, db: AsyncSe
             marketplace="pazarama",
             order_number=fake_order_no,
             customer_name="Pazarama Test Müşterisi",
-            total_price=float(product.price),
+            total_price=float(product.price) * quantity,
             status="Yeni Sipariş"
         )
         db.add(new_order)
@@ -2208,13 +2208,13 @@ async def simulate_pazarama_order(background_tasks: BackgroundTasks, db: AsyncSe
             order_id=new_order.id,
             product_sku=product.sku,
             product_name=product.name,
-            quantity=1,
+            quantity=quantity,
             price=float(product.price)
         )
         db.add(new_item)
         
         # 5. Stoğu düş!
-        product.stock_quantity = max(0, product.stock_quantity - 1)
+        product.stock_quantity = max(0, product.stock_quantity - quantity)
         db.add(product)
         await db.commit()
         
