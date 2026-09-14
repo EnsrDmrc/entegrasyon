@@ -42,8 +42,11 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             await session.rollback()
 
+    from services.repricing import repricing_loop
+    
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
     task = asyncio.create_task(order_patrol_loop())
+    repricing_task = asyncio.create_task(repricing_loop())
     yield
     # Kapanışta iptal et (isterseniz task.cancel() eklenebilir)
 

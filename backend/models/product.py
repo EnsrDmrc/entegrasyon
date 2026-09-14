@@ -17,6 +17,9 @@ class Product(Base):
     pazarama_brand_id = Column(String, nullable=True)
     images_json = Column(String, nullable=True)
     
+    # N11 Otomatik Fiyatlandırma için Ürün URL'si
+    n11_url = Column(String, nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

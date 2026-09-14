@@ -71,6 +71,7 @@ class ProductResponse(BaseModel):
     sku: str
     name: str
     price: float
+    n11_url: Optional[str] = None
     inventories: List[InventoryResponse] = []
 
     class Config:
