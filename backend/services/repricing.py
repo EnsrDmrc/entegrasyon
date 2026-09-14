@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+import logging
+from typing import List
 from sqlalchemy.future import select
 from core.database import AsyncSessionLocal
 from models.product import Product
@@ -20,7 +22,7 @@ async def run_n11_repricing():
     - En ucuz biz değilsek (veyahut tek satıcıysak) dokunmaz.
     - N11 destekli indirim varsa (scraper'dan gelen discount_rate), hesaplanan hedef fiyata bu indirimi tersine uygulayarak ana fiyatı bulur.
     """
-    print("[Repricing] N11 Otomatik Fiyatlandırma motoru başlatıldı...")
+    logger.info("[Repricing] N11 Otomatik Fiyatlandırma motoru başlatıldı...")
     scraper = N11Scraper()
     
     async with AsyncSessionLocal() as db:
@@ -34,7 +36,7 @@ async def run_n11_repricing():
         n11_integrations = n11_integrations_res.scalars().all()
         
         if not n11_integrations:
-            print("[Repricing] Aktif N11 entegrasyonu bulunamadı.")
+            logger.info("[Repricing] Aktif N11 entegrasyonu bulunamadı.")
             return
             
         for integration in n11_integrations:
@@ -66,17 +68,17 @@ async def run_n11_repricing():
                 )
                 inventory = inv_res.scalars().first()
                 if not inventory or inventory.quantity <= 0:
-                    print(f"[Repricing] {product.sku} stokta yok, atlanıyor.")
+                    logger.info(f"[Repricing] {product.sku} stokta yok, atlanıyor.")
                     continue
                     
                 # Rakipleri çek
                 competitors = scraper.get_competitors(product.n11_url)
                 if not competitors:
-                    print(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
+                    logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
                     continue
                     
                 if len(competitors) == 1:
-                    print(f"[Repricing] {product.sku} için sadece biz varız (tek satıcı), fiyata dokunulmuyor.")
+                    logger.info(f"[Repricing] {product.sku} için sadece biz varız (tek satıcı), fiyata dokunulmuyor.")
                     continue
                     
                 # Rakipler zaten küçükten büyüğe sıralı
@@ -86,23 +88,25 @@ async def run_n11_repricing():
                 # En ucuz biz miyiz kontrolü
                 is_cheapest_us = False
                 cheapest_seller_name = cheapest["seller_name"].lower().strip()
+                tenant_name_clean = tenant_name.replace(" ", "")
+                cheapest_seller_name_clean = cheapest_seller_name.replace(" ", "")
                 
                 # Tenant name ile satıcı adı eşleşiyor mu?
-                if tenant_name in cheapest_seller_name or cheapest_seller_name in tenant_name:
+                if tenant_name_clean in cheapest_seller_name_clean or cheapest_seller_name_clean in tenant_name_clean:
                     is_cheapest_us = True
                 
                 # İsme göre bulamazsak, fiyata göre tahmin etmeye çalış (Eğer N11 API'ye yansıyan fiyatımız buysa)
                 # İndirimsiz halini DB'deki fiyatımızla karşılaştırabiliriz, ama isme güvenmek en doğrusu.
                 
                 if not is_cheapest_us:
-                    print(f"[Repricing] {product.sku} için en ucuz biz değiliz (En ucuz: {cheapest_seller_name}). Dokunulmuyor.")
+                    logger.info(f"[Repricing] {product.sku} için en ucuz biz değiliz (En ucuz: {cheapest_seller_name}). Dokunulmuyor.")
                     continue
                     
                 # En ucuz biz isek, kâr maksimizasyonu yap
                 price_diff = second_cheapest["price"] - cheapest["price"]
                 
                 if price_diff <= 10.0:
-                    print(f"[Repricing] {product.sku} için en ucuz biziz ancak 2. sıradaki ile fark {price_diff} TL (<=10). Dokunulmuyor.")
+                    logger.info(f"[Repricing] {product.sku} için en ucuz biziz ancak 2. sıradaki ile fark {price_diff} TL (<=10). Dokunulmuyor.")
                     continue
                     
                 # Yeni hedef fiyat (Müşterinin göreceği nihai sepet fiyatı)
@@ -117,7 +121,7 @@ async def run_n11_repricing():
                 hidden_discount_rate = 0.0
                 if scraper_display_price < db_base_price:
                     hidden_discount_rate = 1 - (scraper_display_price / db_base_price)
-                    print(f"[Repricing] {product.sku} için %{hidden_discount_rate*100:.2f} dinamik N11 indirimi algılandı! (Asıl: {db_base_price} TL, Görünen: {scraper_display_price} TL)")
+                    logger.info(f"[Repricing] {product.sku} için %{hidden_discount_rate*100:.2f} dinamik N11 indirimi algılandı! (Asıl: {db_base_price} TL, Görünen: {scraper_display_price} TL)")
                 
                 # N11'in kendi JSON'unda açıkça belirttiği indirim (Varsa)
                 explicit_discount_rate = cheapest.get("discount_rate", 0) / 100.0
@@ -128,10 +132,10 @@ async def run_n11_repricing():
                 if actual_discount_rate > 0:
                     multiplier = 1 - actual_discount_rate
                     new_base_price = target_final_price / multiplier
-                    print(f"[Repricing] {product.sku} İndirim Oranı: %{actual_discount_rate*100:.2f}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
+                    logger.info(f"[Repricing] {product.sku} İndirim Oranı: %{actual_discount_rate*100:.2f}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
                 else:
                     new_base_price = target_final_price
-                    print(f"[Repricing] {product.sku} için yeni fiyat hesaplandı: {new_base_price:.2f} TL")
+                    logger.info(f"[Repricing] {product.sku} için yeni fiyat hesaplandı: {new_base_price:.2f} TL")
                     
                 # Fiyatı yuvarla (2 hane)
                 new_base_price = round(new_base_price, 2)
@@ -142,18 +146,18 @@ async def run_n11_repricing():
                     # DB'yi de güncelle
                     product.price = new_base_price
                     db.add(product)
-                    print(f"[Repricing] {product.sku} başarıyla güncellendi!")
+                    logger.info(f"[Repricing] {product.sku} başarıyla güncellendi!")
                 else:
-                    print(f"[Repricing] {product.sku} N11 API güncellenirken hata oluştu.")
+                    logger.info(f"[Repricing] {product.sku} N11 API güncellenirken hata oluştu.")
                     
         await db.commit()
-    print("[Repricing] N11 Otomatik Fiyatlandırma tamamlandı.")
+    logger.info("[Repricing] N11 Otomatik Fiyatlandırma tamamlandı.")
 
 async def repricing_loop():
     """
     Arka planda sürekli çalışarak her gece saat 03:00'da repricing görevini tetikler.
     """
-    print("[Repricing] Döngü başlatıldı. Görev her gece 03:00'da çalışacak.")
+    logger.info("[Repricing] Döngü başlatıldı. Görev her gece 03:00'da çalışacak.")
     while True:
         now = datetime.datetime.now()
         target = now.replace(hour=3, minute=0, second=0, microsecond=0)
@@ -161,7 +165,7 @@ async def repricing_loop():
             target += datetime.timedelta(days=1)
             
         wait_seconds = (target - now).total_seconds()
-        print(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var ({target}).")
+        logger.info(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var ({target}).")
         
         # O saat gelene kadar bekle
         await asyncio.sleep(wait_seconds)
