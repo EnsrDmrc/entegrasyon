@@ -9,7 +9,7 @@ from api.deps import get_current_user
 router = APIRouter()
 
 @router.post("/n11/trigger")
-async def trigger_n11_repricing(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user)):
+async def trigger_n11_repricing(background_tasks: BackgroundTasks):
     """
     Sisteme kaydedilmiş olan N11 ürünlerinin rakip fiyatlarını analiz edip,
     kârı maksimize edecek şekilde fiyatları güncelleyen 'Repricing' algoritmasını manuel tetikler.
