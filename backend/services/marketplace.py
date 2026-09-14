@@ -435,7 +435,9 @@ class N11Adapter(MarketplaceAdapter):
                         "items": items
                     })
                 except Exception as e:
-                    print(f"Failed to fetch details for order {ord_summary.id}: {e}")
+                    err_msg = str(e)
+                    if "getroottree" not in err_msg:
+                        print(f"Failed to fetch details for order {ord_summary.id}: {err_msg}")
                     continue
         except Exception as e:
             print(f"[n11 Order Sync Hatası]: {e}")
