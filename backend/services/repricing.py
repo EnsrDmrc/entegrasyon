@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import logging
 from typing import List
+
+logger = logging.getLogger("uvicorn.error")
 from sqlalchemy.future import select
 from core.database import AsyncSessionLocal
 from models.product import Product
