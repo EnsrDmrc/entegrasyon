@@ -105,20 +105,33 @@ async def run_n11_repricing():
                     print(f"[Repricing] {product.sku} için en ucuz biziz ancak 2. sıradaki ile fark {price_diff} TL (<=10). Dokunulmuyor.")
                     continue
                     
-                # Yeni hedef fiyat (Müşterinin göreceği son fiyat)
+                # Yeni hedef fiyat (Müşterinin göreceği nihai sepet fiyatı)
                 target_final_price = second_cheapest["price"] - 10.0
                 
-                # N11 destekli indirim varsa, bizim API'den göndermemiz gereken "Ana Fiyat" (Base Price) nedir?
-                # Örnek: Hedef = 900 TL. N11 İndirimi = %10. Ana Fiyat = 900 / (1 - 0.10) = 1000 TL
-                discount_rate = cheapest["discount_rate"] # Örn: 10
+                # N11 destekli indirim tespit algoritması:
+                # Scraper'da (sayfada) görünen fiyat, veritabanımızdaki (bizim belirlediğimiz) fiyattan düşükse
+                # N11 arka planda dinamik bir indirim uyguluyor demektir (Örn: Sepette %9 İndirim).
+                db_base_price = float(product.price)
+                scraper_display_price = cheapest["price"]
                 
-                if discount_rate > 0:
-                    multiplier = 1 - (discount_rate / 100.0)
+                hidden_discount_rate = 0.0
+                if scraper_display_price < db_base_price:
+                    hidden_discount_rate = 1 - (scraper_display_price / db_base_price)
+                    print(f"[Repricing] {product.sku} için %{hidden_discount_rate*100:.2f} dinamik N11 indirimi algılandı! (Asıl: {db_base_price} TL, Görünen: {scraper_display_price} TL)")
+                
+                # N11'in kendi JSON'unda açıkça belirttiği indirim (Varsa)
+                explicit_discount_rate = cheapest.get("discount_rate", 0) / 100.0
+                
+                # Hangi indirim daha büyükse onu kullan (Genelde hidden_discount_rate daha doğru sonuç verir)
+                actual_discount_rate = max(hidden_discount_rate, explicit_discount_rate)
+                
+                if actual_discount_rate > 0:
+                    multiplier = 1 - actual_discount_rate
                     new_base_price = target_final_price / multiplier
-                    print(f"[Repricing] {product.sku} için N11 İndirimi algılandı (%{discount_rate}). Hedef Son Fiyat: {target_final_price}, API'ye gönderilecek Ana Fiyat: {new_base_price}")
+                    print(f"[Repricing] {product.sku} İndirim Oranı: %{actual_discount_rate*100:.2f}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
                 else:
                     new_base_price = target_final_price
-                    print(f"[Repricing] {product.sku} için yeni fiyat hesaplandı: {new_base_price}")
+                    print(f"[Repricing] {product.sku} için yeni fiyat hesaplandı: {new_base_price:.2f} TL")
                     
                 # Fiyatı yuvarla (2 hane)
                 new_base_price = round(new_base_price, 2)
