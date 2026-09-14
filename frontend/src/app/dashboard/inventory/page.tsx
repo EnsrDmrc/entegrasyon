@@ -40,6 +40,7 @@ function InventoryContent() {
               sku: p.sku,
               name: p.name,
               price: p.price,
+              n11_url: p.n11_url || '',
               stock: totalStock,
               status: totalStock > 0 ? 'Stokta Var' : 'Tükendi'
             };
@@ -61,12 +62,12 @@ function InventoryContent() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ price: 0, stock: 0 });
+  const [editForm, setEditForm] = useState({ price: 0, stock: 0, n11_url: '' });
   const [isUpdating, setIsUpdating] = useState(false);
 
   const openEditModal = (product: any) => {
     setEditingProduct(product);
-    setEditForm({ price: product.price, stock: product.stock });
+    setEditForm({ price: product.price, stock: product.stock, n11_url: product.n11_url || '' });
   };
 
   const closeEditModal = () => {
@@ -86,7 +87,8 @@ function InventoryContent() {
         },
         body: JSON.stringify({ 
           price: editForm.price,
-          quantity: editForm.stock 
+          quantity: editForm.stock,
+          n11_url: editForm.n11_url || null
         })
       });
       
@@ -280,6 +282,17 @@ function InventoryContent() {
                   value={editForm.stock}
                   onChange={(e) => setEditForm({...editForm, stock: parseInt(e.target.value, 10)})}
                   required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">N11 Ürün Linki (Otomatik Fiyatlandırma İçin)</label>
+                <input 
+                  type="url" 
+                  className="input-field" 
+                  placeholder="https://www.n11.com/urun/..."
+                  value={editForm.n11_url}
+                  onChange={(e) => setEditForm({...editForm, n11_url: e.target.value})}
                 />
               </div>
 
