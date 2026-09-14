@@ -66,6 +66,11 @@ async def update_product(
         product.price = data.price
         db.add(product)
 
+    # N11 Linki Güncellemesi
+    if hasattr(data, 'n11_url') and data.n11_url is not None:
+        product.n11_url = data.n11_url if data.n11_url != "" else None
+        db.add(product)
+
     # Envanter (Stok) Güncellemesi
     if data.quantity is not None:
         inv_result = await db.execute(

@@ -80,3 +80,4 @@ class ProductResponse(BaseModel):
 class ProductUpdateRequest(BaseModel):
     price: Optional[float] = None
     quantity: Optional[int] = None
+    n11_url: Optional[str] = None
