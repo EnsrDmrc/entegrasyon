@@ -78,7 +78,21 @@ class N11Scraper:
                                     cart_price = parse_price(cart_price_raw)
                                     base_price = parse_price(base_price_raw)
                                     
-                                    # Eğer N11 platform indirimi varsa
+                                    # Sepette ek indirim (instantDiscountPercentage) varsa, displayPrice'a dahil edilmemiş olabilir.
+                                    # Bunu manuel olarak sepet fiyatından düşmeliyiz ki gerçek rekabet fiyatını bulalım.
+                                    instant_discount_raw = item.get("instantDiscountPercentage")
+                                    if instant_discount_raw:
+                                        if isinstance(instant_discount_raw, str):
+                                            idp_str = instant_discount_raw.replace("%", "").strip()
+                                            try:
+                                                idp_val = float(idp_str) / 100.0
+                                                cart_price = cart_price * (1.0 - idp_val)
+                                            except:
+                                                pass
+                                        elif isinstance(instant_discount_raw, (int, float)):
+                                            cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
+                                            
+                                    # Eğer N11 platform indirimi varsa (base_price ile cart_price arasındaki nihai fark)
                                     platform_discount = 0.0
                                     if base_price > 0 and cart_price < base_price:
                                         platform_discount = 1 - (cart_price / base_price)
