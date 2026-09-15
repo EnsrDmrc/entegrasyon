@@ -45,7 +45,9 @@ class N11Scraper:
                         
                     try:
                         data = json.loads(json_str)
-                        if "searchResults" in data:
+                        is_search_url = '/arama' in url or '/kampanya' in url
+                        
+                        if is_search_url and "searchResults" in data:
                             results = data["searchResults"]
                             if isinstance(results, list):
                                 for item in results:
@@ -53,15 +55,13 @@ class N11Scraper:
                                     if not seller_name:
                                         continue
                                         
-                                    # Görünen fiyat (Sepet fiyatı)
                                     cart_price_raw = item.get("displayPrice")
                                     if cart_price_raw is None:
                                         cart_price_raw = item.get("price")
                                         
-                                    # Eski fiyat (İndirimsiz/Üstü çizili fiyat)
                                     base_price_raw = item.get("price")
                                     if item.get("oldPrice"):
-                                        old_price_str = item.get("oldPrice").replace("TL", "").replace(".", "").replace(",", ".").strip()
+                                        old_price_str = str(item.get("oldPrice")).replace("TL", "").replace(".", "").replace(",", ".").strip()
                                         try:
                                             base_price_raw = float(old_price_str)
                                         except:
@@ -78,8 +78,6 @@ class N11Scraper:
                                     cart_price = parse_price(cart_price_raw)
                                     base_price = parse_price(base_price_raw)
                                     
-                                    # Sepette ek indirim (instantDiscountPercentage) varsa, displayPrice'a dahil edilmemiş olabilir.
-                                    # Bunu manuel olarak sepet fiyatından düşmeliyiz ki gerçek rekabet fiyatını bulalım.
                                     instant_discount_raw = item.get("instantDiscountPercentage")
                                     if instant_discount_raw:
                                         if isinstance(instant_discount_raw, str):
@@ -92,35 +90,53 @@ class N11Scraper:
                                         elif isinstance(instant_discount_raw, (int, float)):
                                             cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
                                             
-                                    # Eğer N11 platform indirimi varsa (base_price ile cart_price arasındaki nihai fark)
                                     platform_discount = 0.0
                                     if base_price > 0 and cart_price < base_price:
                                         platform_discount = 1 - (cart_price / base_price)
                                         
                                     competitors.append({
                                         "seller_name": str(seller_name).strip(),
-                                        "price": cart_price,  # Repricing için ana karşılaştırma ölçütü: sepet fiyatı
+                                        "price": cart_price,
                                         "base_price": base_price,
                                         "platform_discount": platform_discount
                                     })
-                        elif "product" in data and "seller" in data["product"]:
-                            # Tek satıcılı sayfa (Rakipler yok)
+                                    
+                        elif not is_search_url and "product" in data and "seller" in data["product"]:
+                            # Ana ürün sayfası, ana satıcıyı ekle
                             p = data["product"]
                             seller_name = p["seller"].get("nickName")
-                            price = p.get("displayPrice") or p.get("price")
                             
-                            if isinstance(price, str):
-                                price_str = price.replace("TL", "").strip()
-                                price_str = price_str.replace(".", "").replace(",", ".")
-                                try:
-                                    price = float(price_str)
-                                except:
-                                    price = 0.0
-                                    
+                            # İndirimleri kontrol et
+                            base_price_raw = p.get("price")
+                            cart_price_raw = p.get("displayPrice") or base_price_raw
+                            
+                            def parse_price(pr):
+                                if isinstance(pr, (int, float)): return float(pr)
+                                if isinstance(pr, str):
+                                    s = pr.replace("TL", "").strip().replace(".", "").replace(",", ".")
+                                    try: return float(s)
+                                    except: return 0.0
+                                return 0.0
+                                
+                            cart_price = parse_price(cart_price_raw)
+                            base_price = parse_price(base_price_raw)
+                            
+                            instant_discount_raw = p.get("instantDiscountPercentage")
+                            if instant_discount_raw:
+                                if isinstance(instant_discount_raw, str):
+                                    idp_str = instant_discount_raw.replace("%", "").strip()
+                                    try:
+                                        idp_val = float(idp_str) / 100.0
+                                        cart_price = cart_price * (1.0 - idp_val)
+                                    except:
+                                        pass
+                                elif isinstance(instant_discount_raw, (int, float)):
+                                    cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
+                            
                             discount_rate = p.get("discountRate", 0)
                             competitors.append({
                                 "seller_name": str(seller_name).strip() if seller_name else "Unknown",
-                                "price": float(price),
+                                "price": float(cart_price),
                                 "discount_rate": float(discount_rate or 0)
                             })
                         break
