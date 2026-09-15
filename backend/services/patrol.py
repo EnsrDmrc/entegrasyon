@@ -23,6 +23,7 @@ async def process_tenant_orders(session, tenant_id: int):
     hepsiburada_int = next((i for i in integrations if i.marketplace_name == 'hepsiburada'), None)
     trendyol_int = next((i for i in integrations if i.marketplace_name == 'trendyol'), None)
     amazon_int = next((i for i in integrations if i.marketplace_name == 'amazon'), None)
+    pazarama_int = next((i for i in integrations if i.marketplace_name == 'pazarama'), None)
     
     fetched_orders = []
     n11_adapter = None
@@ -30,6 +31,7 @@ async def process_tenant_orders(session, tenant_id: int):
     hepsiburada_adapter = None
     trendyol_adapter = None
     amazon_adapter = None
+    pazarama_adapter = None
     
     try:
         # Fetch N11 orders
@@ -93,6 +95,18 @@ async def process_tenant_orders(session, tenant_id: int):
             fetched_orders.extend(amz_orders)
     except Exception as e:
         print(f"[Patrol] Amazon Order fetch failed for tenant {tenant_id}: {e}")
+
+    try:
+        # Fetch Pazarama orders
+        from services.marketplace import PazaramaAdapter
+        if pazarama_int and pazarama_int.store_url and pazarama_int.api_key:
+            pazarama_adapter = PazaramaAdapter(merchant_id=str(pazarama_int.store_url), api_key=str(pazarama_int.api_key), api_secret=str(pazarama_int.api_secret) if pazarama_int.api_secret else None)
+            pz_orders = await asyncio.to_thread(pazarama_adapter.fetch_orders)
+            for o in pz_orders:
+                o["marketplace"] = "pazarama"
+            fetched_orders.extend(pz_orders)
+    except Exception as e:
+        print(f"[Patrol] Pazarama Order fetch failed for tenant {tenant_id}: {e}")
     
     for ord_data in fetched_orders:
         order_number = ord_data.get("order_number")
@@ -197,6 +211,10 @@ async def process_tenant_orders(session, tenant_id: int):
             # Amazon'a it
             if amazon_adapter:
                 await asyncio.to_thread(amazon_adapter.update_product, sku, new_stock=new_stock)
+
+            # Pazarama'ya it
+            if pazarama_adapter:
+                await asyncio.to_thread(pazarama_adapter.update_product, sku, new_stock=new_stock)
 
 async def order_patrol_loop():
     print("[Patrol] Sipariş Devriyesi başlatıldı! Her 1 dakikada bir çalışacak.")
