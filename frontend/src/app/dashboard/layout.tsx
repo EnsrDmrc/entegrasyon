@@ -77,6 +77,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             Ayarlar
           </Link>
+          <Link 
+            href="/dashboard/repricing-report" 
+            className={`sidebar-link ${pathname.includes('/repricing-report') ? 'active' : ''}`}
+          >
+            Fırsat Raporu
+          </Link>
         </nav>
         <div style={{ padding: '1rem' }}>
           <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%' }}>

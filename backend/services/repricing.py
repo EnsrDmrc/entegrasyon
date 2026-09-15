@@ -100,10 +100,24 @@ async def run_n11_repricing():
                 # İsme göre bulamazsak, fiyata göre tahmin etmeye çalış (Eğer N11 API'ye yansıyan fiyatımız buysa)
                 # İndirimsiz halini DB'deki fiyatımızla karşılaştırabiliriz, ama isme güvenmek en doğrusu.
                 
+                from datetime import datetime, timezone
+                
                 if not is_cheapest_us:
                     logger.info(f"[Repricing] {product.sku} için en ucuz biz değiliz (En ucuz: {cheapest_seller_name}). Dokunulmuyor.")
+                    product.is_expensive = 1
+                    product.cheapest_competitor_price = cheapest["price"]
+                    product.cheapest_competitor_name = cheapest["seller_name"]
+                    product.last_repricing_check = datetime.now(timezone.utc)
+                    db.add(product)
+                    db.commit()
                     continue
                     
+                # En ucuz biz isek, is_expensive durumunu temizle
+                product.is_expensive = 0
+                product.cheapest_competitor_price = cheapest["price"]
+                product.cheapest_competitor_name = cheapest["seller_name"]
+                product.last_repricing_check = datetime.now(timezone.utc)
+                
                 # En ucuz biz isek, kâr maksimizasyonu yap
                 price_diff = second_cheapest["price"] - cheapest["price"]
                 

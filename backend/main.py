@@ -42,6 +42,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             await session.rollback()
 
+        try:
+            await session.execute(text("ALTER TABLE products ADD COLUMN is_expensive INTEGER DEFAULT 0;"))
+            await session.execute(text("ALTER TABLE products ADD COLUMN cheapest_competitor_price FLOAT;"))
+            await session.execute(text("ALTER TABLE products ADD COLUMN cheapest_competitor_name VARCHAR;"))
+            await session.execute(text("ALTER TABLE products ADD COLUMN last_repricing_check TIMESTAMP WITH TIME ZONE;"))
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+
     from services.repricing import repricing_loop
     
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
