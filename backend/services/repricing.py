@@ -114,7 +114,7 @@ async def run_n11_repricing():
                     product.cheapest_competitor_name = cheapest["seller_name"]
                     product.last_repricing_check = datetime.now(timezone.utc)
                     db.add(product)
-                    db.commit()
+                    await db.commit()
                     continue
                     
                 # En ucuz biz isek, is_expensive durumunu temizle
