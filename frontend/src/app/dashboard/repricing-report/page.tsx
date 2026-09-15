@@ -31,6 +31,32 @@ export default function RepricingReportPage() {
     }
   };
 
+  const handleUpdatePrice = async (product: any) => {
+    if (!product.cheapest_competitor_price) return;
+    const newPrice = product.cheapest_competitor_price - 10;
+    
+    if (window.confirm(`${product.name} ürününün fiyatı, en ucuz rakipten 10 TL ucuza (${newPrice} TL) olarak güncellenecek ve entegre sistemlere (N11, Shopify vb.) gönderilecektir. Onaylıyor musunuz?`)) {
+      try {
+        const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${product.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ price: newPrice })
+        });
+        
+        if (res.ok) {
+          alert('Fiyat başarıyla güncellendi ve sistemlere iletildi!');
+          fetchReport();
+        } else {
+          alert('Fiyat güncellenirken bir hata oluştu.');
+        }
+      } catch (err) {
+        alert('Sunucuya bağlanırken bir hata oluştu.');
+      }
+    }
+  };
+
   const filteredProducts = products.filter(p => 
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -149,6 +175,25 @@ export default function RepricingReportPage() {
           font-weight: 600;
           border: 1px solid #f9a8d4;
         }
+        .action-button {
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+        }
+        .action-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4);
+        }
       `}</style>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
@@ -210,6 +255,7 @@ export default function RepricingReportPage() {
                 <th>En Ucuz Satıcı</th>
                 <th>Fiyat Farkı (Kayıp)</th>
                 <th>Tespit Zamanı</th>
+                <th>Aksiyon</th>
               </tr>
             </thead>
             <tbody>
@@ -254,6 +300,12 @@ export default function RepricingReportPage() {
                         <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                         {p.last_checked ? new Date(p.last_checked).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
                       </div>
+                    </td>
+                    <td>
+                      <button className="action-button" onClick={() => handleUpdatePrice(p)}>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        Fiyatı Güncelle (-10 TL)
+                      </button>
                     </td>
                   </tr>
                 );

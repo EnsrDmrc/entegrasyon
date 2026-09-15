@@ -73,6 +73,7 @@ async def get_expensive_products(current_user: User = Depends(get_current_user))
             "isSuccess": True,
             "data": [
                 {
+                    "id": p.id,
                     "sku": p.sku,
                     "name": p.name,
                     "our_price": p.price,
