@@ -37,26 +37,23 @@ export default function RepricingReportPage() {
     // Hedef sepet fiyatımız: en ucuz rakipten 10 TL ucuz olmak
     const targetCartPrice = product.cheapest_competitor_price - 10;
     
-    // Eğer N11 tarafından uygulanan bir indirim varsa (Sepet Fiyatı < Liste Fiyatı)
-    let discountMultiplier = 1;
+    // N11 tarafından uygulanan sabit bir indirim tutarı var mı? (Örn: Liste 3000, Sepet 2500 ise indirim 500 TL'dir)
+    let discountAmount = 0;
     if (product.our_cart_price && product.our_price && product.our_cart_price < product.our_price) {
-      discountMultiplier = product.our_cart_price / product.our_price;
+      discountAmount = product.our_price - product.our_cart_price;
     }
     
     // N11'e göndermemiz gereken asıl DB fiyatı (Liste Fiyatı)
-    let targetBasePrice = targetCartPrice;
-    if (discountMultiplier < 1) {
-      targetBasePrice = targetCartPrice / discountMultiplier;
-    }
+    let targetBasePrice = targetCartPrice + discountAmount;
     
-    // Küsuratları düzeltelim (örneğin 239.99 gibi görünmesi için .toFixed(2))
+    // Küsuratları düzeltelim
     const formattedBasePrice = Number(targetBasePrice.toFixed(2));
     const formattedCartPrice = Number(targetCartPrice.toFixed(2));
+    const formattedDiscount = Number(discountAmount.toFixed(2));
     
     let confirmMessage = `${product.name} ürününün SEPET FİYATI en ucuz rakipten 10 TL ucuza (${formattedCartPrice} TL) olarak güncellenecektir.`;
-    if (discountMultiplier < 1) {
-      const discountPercentage = Math.round((1 - discountMultiplier) * 100);
-      confirmMessage += `\n\nDİKKAT: Ürününüzde %${discountPercentage} oranında N11 indirimi tespit edildi! Bu indirimin korunacağı varsayılarak sisteme (N11, Shopify vb.) iletilecek olan asıl LİSTE FİYATINIZ ${formattedBasePrice} TL olarak ayarlanacaktır.`;
+    if (discountAmount > 0) {
+      confirmMessage += `\n\nDİKKAT: Ürününüzde ${formattedDiscount} TL tutarında N11 indirimi tespit edildi! Bu indirimin aynen uygulanacağı varsayılarak sisteme (N11, Shopify vb.) iletilecek olan asıl LİSTE FİYATINIZ ${formattedBasePrice} TL olarak ayarlanacaktır.`;
     } else {
       confirmMessage += `\n\nBu fiyat (N11, Shopify vb.) sistemlere ${formattedBasePrice} TL olarak iletilecektir.`;
     }
