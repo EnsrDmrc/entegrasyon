@@ -74,6 +74,7 @@ async def run_n11_repricing():
                     continue
                     
                 # Rakipleri çek
+                logger.info(f"[Repricing] {product.sku} için N11 URL: {product.n11_url}")
                 competitors = scraper.get_competitors(product.n11_url)
                 if not competitors:
                     logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
