@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api';
-import { FiAlertCircle, FiTrendingDown, FiClock, FiExternalLink, FiSearch } from 'react-helper-icons'; // Or similar, I will just use SVGs to be safe
 
 export default function RepricingReportPage() {
   const [products, setProducts] = useState<any[]>([]);
