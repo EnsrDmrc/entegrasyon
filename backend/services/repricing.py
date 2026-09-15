@@ -141,17 +141,19 @@ async def run_n11_repricing():
                 # Yeni hedef fiyat (Müşterinin göreceği nihai sepet fiyatı)
                 target_final_price = second_cheapest["price"] - 10.0
                 
-                # N11 platform indirimini DB üzerinden tahmin etmek Fiyat SARMALI (Price Spiral) yaratır.
-                # Bu yüzden scraper'ın çektiği 'platform_discount' verisini doğrudan kullanıyoruz.
-                actual_discount_rate = cheapest.get("platform_discount", 0.0)
+                # N11 platform indirimini DB üzerinden tahmin ediyoruz (Örn: Sepet 2500, Liste 3000 ise Çarpan = 2500/3000 = 0.8333)
+                our_base_price = float(product.price)
+                discount_multiplier = 1.0
+                if our_current_cart_price > 0 and our_base_price > 0 and our_current_cart_price < our_base_price:
+                    discount_multiplier = our_current_cart_price / our_base_price
                 
-                if actual_discount_rate > 0:
-                    multiplier = 1 - actual_discount_rate
-                    new_base_price = target_final_price / multiplier
-                    logger.info(f"[Repricing] {product.sku} İndirim Oranı: %{actual_discount_rate*100:.2f}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
+                if discount_multiplier < 1.0:
+                    new_base_price = target_final_price / discount_multiplier
+                    discount_pct = round((1 - discount_multiplier) * 100)
+                    logger.info(f"[Repricing] {product.sku} İndirim Oranı: %{discount_pct}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
                 else:
                     new_base_price = target_final_price
-                    logger.info(f"[Repricing] {product.sku} için yeni fiyat hesaplandı: {new_base_price:.2f} TL")
+                    logger.info(f"[Repricing] {product.sku} için yeni fiyat hesaplandı (İndirim Yok): {new_base_price:.2f} TL")
                     
                 # Fiyatı yuvarla (2 hane)
                 new_base_price = round(new_base_price, 2)
