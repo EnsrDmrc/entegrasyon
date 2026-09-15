@@ -16,5 +16,6 @@ gunicorn==22.0.0
 zeep==4.3.1
 python-amazon-sp-api
 cloudscraper==1.2.71
+curl_cffi==0.16.3
 beautifulsoup4==4.12.3
 lxml==5.1.0

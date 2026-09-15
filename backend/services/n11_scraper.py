@@ -1,17 +1,11 @@
-import cloudscraper
+from curl_cffi import requests
 import json
 import re
 from bs4 import BeautifulSoup
 
 class N11Scraper:
     def __init__(self):
-        self.scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
-            }
-        )
+        pass
         
     def get_competitors(self, url: str) -> list:
         """
@@ -27,7 +21,12 @@ class N11Scraper:
         ]
         """
         try:
-            resp = self.scraper.get(url, timeout=15.0)
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            }
+            resp = requests.get(url, headers=headers, impersonate="chrome110", timeout=15.0)
             if resp.status_code != 200:
                 print(f"[N11Scraper] HTTP Hatası: {resp.status_code} - URL: {url}")
                 return []
