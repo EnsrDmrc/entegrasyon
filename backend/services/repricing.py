@@ -114,22 +114,9 @@ async def run_n11_repricing():
                 # Yeni hedef fiyat (Müşterinin göreceği nihai sepet fiyatı)
                 target_final_price = second_cheapest["price"] - 10.0
                 
-                # N11 destekli indirim tespit algoritması:
-                # Scraper'da (sayfada) görünen fiyat, veritabanımızdaki (bizim belirlediğimiz) fiyattan düşükse
-                # N11 arka planda dinamik bir indirim uyguluyor demektir (Örn: Sepette %9 İndirim).
-                db_base_price = float(product.price)
-                scraper_display_price = cheapest["price"]
-                
-                hidden_discount_rate = 0.0
-                if scraper_display_price < db_base_price:
-                    hidden_discount_rate = 1 - (scraper_display_price / db_base_price)
-                    logger.info(f"[Repricing] {product.sku} için %{hidden_discount_rate*100:.2f} dinamik N11 indirimi algılandı! (Asıl: {db_base_price} TL, Görünen: {scraper_display_price} TL)")
-                
-                # N11'in kendi JSON'unda açıkça belirttiği indirim (Varsa)
-                explicit_discount_rate = cheapest.get("discount_rate", 0) / 100.0
-                
-                # Hangi indirim daha büyükse onu kullan (Genelde hidden_discount_rate daha doğru sonuç verir)
-                actual_discount_rate = max(hidden_discount_rate, explicit_discount_rate)
+                # N11 platform indirimini DB üzerinden tahmin etmek Fiyat SARMALI (Price Spiral) yaratır.
+                # Bu yüzden scraper'ın çektiği 'platform_discount' verisini doğrudan kullanıyoruz.
+                actual_discount_rate = cheapest.get("platform_discount", 0.0)
                 
                 if actual_discount_rate > 0:
                     multiplier = 1 - actual_discount_rate

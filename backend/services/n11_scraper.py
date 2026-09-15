@@ -53,28 +53,41 @@ class N11Scraper:
                                     if not seller_name:
                                         continue
                                         
-                                    price = item.get("displayPrice")
-                                    if price is None:
-                                        price = item.get("price")
+                                    # Görünen fiyat (Sepet fiyatı)
+                                    cart_price_raw = item.get("displayPrice")
+                                    if cart_price_raw is None:
+                                        cart_price_raw = item.get("price")
                                         
-                                    # Fiyat string ise float'a çevir (örn: "1.228,50 TL")
-                                    if isinstance(price, str):
-                                        price_str = price.replace("TL", "").strip()
-                                        price_str = price_str.replace(".", "").replace(",", ".")
+                                    # Eski fiyat (İndirimsiz/Üstü çizili fiyat)
+                                    base_price_raw = item.get("price")
+                                    if item.get("oldPrice"):
+                                        old_price_str = item.get("oldPrice").replace("TL", "").replace(".", "").replace(",", ".").strip()
                                         try:
-                                            price = float(price_str)
+                                            base_price_raw = float(old_price_str)
                                         except:
-                                            price = 0.0
+                                            pass
                                             
-                                    discount_rate = item.get("discountRate", 0)
-                                    instant_discount = item.get("instantDiscountPercentage", 0)
+                                    def parse_price(p):
+                                        if isinstance(p, (int, float)): return float(p)
+                                        if isinstance(p, str):
+                                            s = p.replace("TL", "").strip().replace(".", "").replace(",", ".")
+                                            try: return float(s)
+                                            except: return 0.0
+                                        return 0.0
+                                        
+                                    cart_price = parse_price(cart_price_raw)
+                                    base_price = parse_price(base_price_raw)
                                     
-                                    total_discount = max(float(discount_rate or 0), float(instant_discount or 0))
-                                    
+                                    # Eğer N11 platform indirimi varsa
+                                    platform_discount = 0.0
+                                    if base_price > 0 and cart_price < base_price:
+                                        platform_discount = 1 - (cart_price / base_price)
+                                        
                                     competitors.append({
                                         "seller_name": str(seller_name).strip(),
-                                        "price": float(price),
-                                        "discount_rate": total_discount
+                                        "price": cart_price,  # Repricing için ana karşılaştırma ölçütü: sepet fiyatı
+                                        "base_price": base_price,
+                                        "platform_discount": platform_discount
                                     })
                         elif "product" in data and "seller" in data["product"]:
                             # Tek satıcılı sayfa (Rakipler yok)
