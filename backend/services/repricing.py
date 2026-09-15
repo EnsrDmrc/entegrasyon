@@ -103,7 +103,13 @@ async def run_n11_repricing():
                 from datetime import datetime, timezone
                 
                 # Bizim kendi mağazamızın anlık bilgilerini scraper sonucundan bul (Sepet fiyatımızı göstermek için)
-                our_product_info = next((c for c in competitors if c["seller_name"].lower().strip().replace(" ", "") == tenant_name), None)
+                our_product_info = None
+                for c in competitors:
+                    c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
+                    if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
+                        our_product_info = c
+                        break
+                        
                 our_current_cart_price = our_product_info["price"] if our_product_info else float(product.price)
                 
                 if not is_cheapest_us:
