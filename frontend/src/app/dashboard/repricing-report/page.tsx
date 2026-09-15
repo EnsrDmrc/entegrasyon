@@ -33,16 +33,43 @@ export default function RepricingReportPage() {
 
   const handleUpdatePrice = async (product: any) => {
     if (!product.cheapest_competitor_price) return;
-    const newPrice = product.cheapest_competitor_price - 10;
     
-    if (window.confirm(`${product.name} ürününün fiyatı, en ucuz rakipten 10 TL ucuza (${newPrice} TL) olarak güncellenecek ve entegre sistemlere (N11, Shopify vb.) gönderilecektir. Onaylıyor musunuz?`)) {
+    // Hedef sepet fiyatımız: en ucuz rakipten 10 TL ucuz olmak
+    const targetCartPrice = product.cheapest_competitor_price - 10;
+    
+    // Eğer N11 tarafından uygulanan bir indirim varsa (Sepet Fiyatı < Liste Fiyatı)
+    let discountMultiplier = 1;
+    if (product.our_cart_price && product.our_price && product.our_cart_price < product.our_price) {
+      discountMultiplier = product.our_cart_price / product.our_price;
+    }
+    
+    // N11'e göndermemiz gereken asıl DB fiyatı (Liste Fiyatı)
+    let targetBasePrice = targetCartPrice;
+    if (discountMultiplier < 1) {
+      targetBasePrice = targetCartPrice / discountMultiplier;
+    }
+    
+    // Küsuratları düzeltelim (örneğin 239.99 gibi görünmesi için .toFixed(2))
+    const formattedBasePrice = Number(targetBasePrice.toFixed(2));
+    const formattedCartPrice = Number(targetCartPrice.toFixed(2));
+    
+    let confirmMessage = `${product.name} ürününün SEPET FİYATI en ucuz rakipten 10 TL ucuza (${formattedCartPrice} TL) olarak güncellenecektir.`;
+    if (discountMultiplier < 1) {
+      const discountPercentage = Math.round((1 - discountMultiplier) * 100);
+      confirmMessage += `\n\nDİKKAT: Ürününüzde %${discountPercentage} oranında N11 indirimi tespit edildi! Bu indirimin korunacağı varsayılarak sisteme (N11, Shopify vb.) iletilecek olan asıl LİSTE FİYATINIZ ${formattedBasePrice} TL olarak ayarlanacaktır.`;
+    } else {
+      confirmMessage += `\n\nBu fiyat (N11, Shopify vb.) sistemlere ${formattedBasePrice} TL olarak iletilecektir.`;
+    }
+    confirmMessage += `\n\nOnaylıyor musunuz?`;
+    
+    if (window.confirm(confirmMessage)) {
       try {
         const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${product.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ price: newPrice })
+          body: JSON.stringify({ price: formattedBasePrice })
         });
         
         if (res.ok) {
