@@ -37,23 +37,35 @@ export default function RepricingReportPage() {
     // Hedef sepet fiyatımız: en ucuz rakipten 10 TL ucuz olmak
     const targetCartPrice = product.cheapest_competitor_price - 10;
     
-    // N11 tarafından uygulanan sabit bir indirim tutarı var mı? (Örn: Liste 3000, Sepet 2500 ise indirim 500 TL'dir)
-    let discountAmount = 0;
+    // Eğer N11 tarafından uygulanan bir indirim varsa (Sepet Fiyatı < Liste Fiyatı)
+    let discountMultiplier = 1;
+    let discountPercentage = 0;
     if (product.our_cart_price && product.our_price && product.our_cart_price < product.our_price) {
-      discountAmount = product.our_price - product.our_cart_price;
+      discountMultiplier = product.our_cart_price / product.our_price;
+      discountPercentage = Math.round((1 - discountMultiplier) * 100);
     }
     
     // N11'e göndermemiz gereken asıl DB fiyatı (Liste Fiyatı)
-    let targetBasePrice = targetCartPrice + discountAmount;
+    // Matematik: Hedef Sepet Fiyatı / İndirim Çarpanı = Olması Gereken Baz Fiyat
+    let targetBasePrice = targetCartPrice;
+    if (discountMultiplier < 1) {
+      targetBasePrice = targetCartPrice / discountMultiplier;
+    }
     
     // Küsuratları düzeltelim
     const formattedBasePrice = Number(targetBasePrice.toFixed(2));
     const formattedCartPrice = Number(targetCartPrice.toFixed(2));
-    const formattedDiscount = Number(discountAmount.toFixed(2));
     
     let confirmMessage = `${product.name} ürününün SEPET FİYATI en ucuz rakipten 10 TL ucuza (${formattedCartPrice} TL) olarak güncellenecektir.`;
-    if (discountAmount > 0) {
-      confirmMessage += `\n\nDİKKAT: Ürününüzde ${formattedDiscount} TL tutarında N11 indirimi tespit edildi! Bu indirimin aynen uygulanacağı varsayılarak sisteme (N11, Shopify vb.) iletilecek olan asıl LİSTE FİYATINIZ ${formattedBasePrice} TL olarak ayarlanacaktır.`;
+    if (discountMultiplier < 1) {
+      confirmMessage += `\n\nDİKKAT: Ürününüzde %${discountPercentage} oranında N11 yüzdelik indirimi tespit edildi!`;
+      confirmMessage += `\n- Sizin DB Fiyatınız: ${product.our_price} TL`;
+      confirmMessage += `\n- N11 Sepet Fiyatınız: ${product.our_cart_price} TL`;
+      confirmMessage += `\n- İndirim Oranı: %${discountPercentage}`;
+      confirmMessage += `\n- Rakibin Sepet Fiyatı: ${product.cheapest_competitor_price} TL`;
+      confirmMessage += `\n\nRakibi 10 TL geçmek için hedef Sepet Fiyatınız: ${formattedCartPrice} TL olmalıdır.`;
+      confirmMessage += `\nBu hedefe ulaşmak için %${discountPercentage} indirimi geriye dönük hesapladık (Matematik: ${formattedCartPrice} / ${(discountMultiplier).toFixed(3)}).`;
+      confirmMessage += `\nSonuç olarak sisteme (N11/Shopify) iletilecek olan asıl LİSTE FİYATINIZ: ${formattedBasePrice} TL olarak belirlenmiştir!`;
     } else {
       confirmMessage += `\n\nBu fiyat (N11, Shopify vb.) sistemlere ${formattedBasePrice} TL olarak iletilecektir.`;
     }
