@@ -21,6 +21,7 @@ class Product(Base):
     n11_url = Column(String, nullable=True)
     # Otomatik Fiyatlandırma (Repricing) Rapor Alanları
     is_expensive = Column(Integer, default=0) # 0: False, 1: True (Boolean yerine SQLite/Postgres uyumluluğu için veya direkt Boolean da olabilir ama DB'de boolean eklemek zordur, Integer kullanalım)
+    our_cart_price = Column(Float, nullable=True)
     cheapest_competitor_price = Column(Float, nullable=True)
     cheapest_competitor_name = Column(String, nullable=True)
     last_repricing_check = Column(DateTime(timezone=True), nullable=True)

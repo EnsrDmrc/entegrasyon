@@ -102,9 +102,14 @@ async def run_n11_repricing():
                 
                 from datetime import datetime, timezone
                 
+                # Bizim kendi mağazamızın anlık bilgilerini scraper sonucundan bul (Sepet fiyatımızı göstermek için)
+                our_product_info = next((c for c in competitors if c["seller_name"].lower().strip().replace(" ", "") == tenant_name), None)
+                our_current_cart_price = our_product_info["price"] if our_product_info else float(product.price)
+                
                 if not is_cheapest_us:
                     logger.info(f"[Repricing] {product.sku} için en ucuz biz değiliz (En ucuz: {cheapest_seller_name}). Dokunulmuyor.")
                     product.is_expensive = 1
+                    product.our_cart_price = our_current_cart_price
                     product.cheapest_competitor_price = cheapest["price"]
                     product.cheapest_competitor_name = cheapest["seller_name"]
                     product.last_repricing_check = datetime.now(timezone.utc)
@@ -114,6 +119,7 @@ async def run_n11_repricing():
                     
                 # En ucuz biz isek, is_expensive durumunu temizle
                 product.is_expensive = 0
+                product.our_cart_price = our_current_cart_price
                 product.cheapest_competitor_price = cheapest["price"]
                 product.cheapest_competitor_name = cheapest["seller_name"]
                 product.last_repricing_check = datetime.now(timezone.utc)

@@ -76,6 +76,7 @@ async def get_expensive_products(current_user: User = Depends(get_current_user))
                     "sku": p.sku,
                     "name": p.name,
                     "our_price": p.price,
+                    "our_cart_price": p.our_cart_price,
                     "cheapest_competitor_name": p.cheapest_competitor_name,
                     "cheapest_competitor_price": p.cheapest_competitor_price,
                     "last_checked": p.last_repricing_check
