@@ -147,6 +147,18 @@ class N11Scraper:
                                     cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
                             
                             discount_rate = p.get("discountRate", 0)
+                            if discount_rate and base_price > 0 and cart_price >= base_price:
+                                cart_price = base_price * (1.0 - (float(discount_rate) / 100.0))
+                                
+                            # Kupon veya sepet indirimi olabilir (kampanya fiyatı)
+                            campaign_price_raw = p.get("campaignPrice")
+                            if campaign_price_raw:
+                                try:
+                                    cmp_val = float(str(campaign_price_raw).replace("TL", "").replace(".", "").replace(",", ".").strip())
+                                    if cmp_val > 0 and cmp_val < cart_price:
+                                        cart_price = cmp_val
+                                except:
+                                    pass
                             
                             stock_val = 0
                             if p.get("stockAmount"):
@@ -167,10 +179,10 @@ class N11Scraper:
                         print(f"[N11Scraper] JSON Parse hatası: {e}")
             
             # HTML üzerinden diğer satıcıları kontrol et (Product Detail sayfasında window.model'de gelmeyebilir)
-            other_sellers = soup.select('.unifiedProduct.pdpSidebarUnification, .other-sellers-container .seller-list-item, .other-sellers .seller-item, li.seller')
+            other_sellers = soup.select('.unifiedProduct.pdpSidebarUnification, .other-sellers-container .seller-list-item, .other-sellers .seller-item, li.seller, .seller-list-item, .seller-item, .seller-container, .unf-p-seller-list li')
             for s in other_sellers:
-                name_elem = s.select_one('.name')
-                price_elem = s.select_one('.priceDisplay, .price, .newPrice, ins')
+                name_elem = s.select_one('.name, .seller-name, .store-name, .s-name, h3, a.title')
+                price_elem = s.select_one('.priceDisplay, .price, .newPrice, ins, .new-price, .s-price')
                 
                 if name_elem and price_elem:
                     s_name = name_elem.text.strip()

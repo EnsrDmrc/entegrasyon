@@ -64,6 +64,35 @@ async def update_product(
     # Fiyat Güncellemesi
     if data.price is not None:
         product.price = data.price
+        
+        # UI'da anında yansıması için (yaklaşık bir) cart_price ve is_expensive hesabı
+        import json
+        if product.competitors_json:
+            try:
+                comps = json.loads(product.competitors_json)
+                if comps and len(comps) > 1:
+                    from models.tenant import Tenant
+                    t_res = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+                    t = t_res.scalars().first()
+                    t_name = t.name.replace(" ", "").lower() if t else ""
+                    
+                    other_comps = []
+                    for c in comps:
+                        c_name = c.get("seller_name", "").replace(" ", "").lower()
+                        if t_name not in c_name and c_name not in t_name:
+                            other_comps.append(c)
+                            
+                    if other_comps:
+                        cheapest_other = min(other_comps, key=lambda x: x["price"])
+                        product.cheapest_competitor_price = cheapest_other["price"]
+                        product.cheapest_competitor_name = cheapest_other["seller_name"]
+                        product.our_cart_price = float(data.price)
+                        product.is_expensive = 1 if float(data.price) > cheapest_other["price"] else 0
+                    else:
+                        product.is_expensive = 0
+            except:
+                pass
+                
         db.add(product)
 
     # N11 Linki Güncellemesi

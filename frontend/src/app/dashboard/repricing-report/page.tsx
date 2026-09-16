@@ -71,6 +71,8 @@ export default function RepricingReportPage() {
   const handleUpdate = async (product: any, actionType: 'manual' | 'auto_minus_10') => {
     let targetBasePrice = 0;
     let targetStock = getStockFromInventories(product);
+    const myBasePrice = product.price;
+    const currentStock = getStockFromInventories(product);
     
     if (actionType === 'auto_minus_10') {
       if (!product.cheapest_competitor_price) return;
@@ -99,13 +101,15 @@ export default function RepricingReportPage() {
       
     } else {
       // Manual edit
-      const p = parseFloat(editPrice[product.id]);
+      const rawPrice = editPrice[product.id] !== undefined && editPrice[product.id] !== '' ? editPrice[product.id] : myBasePrice.toString();
+      const p = parseFloat(rawPrice);
       if (isNaN(p) || p <= 0) {
         alert('Geçerli bir fiyat giriniz.'); return;
       }
       targetBasePrice = p;
       
-      const s = parseInt(editStock[product.id]);
+      const rawStock = editStock[product.id] !== undefined && editStock[product.id] !== '' ? editStock[product.id] : currentStock.toString();
+      const s = parseInt(rawStock);
       if (!isNaN(s)) {
         targetStock = s;
       }
@@ -121,7 +125,6 @@ export default function RepricingReportPage() {
       
       if (res.ok) {
         alert('Fiyat ve stok başarıyla güncellendi! Tüm platformlara senkronize ediliyor...');
-        fetchProducts(); // refresh
       } else {
         alert('Güncelleme sırasında bir hata oluştu.');
       }
@@ -129,6 +132,7 @@ export default function RepricingReportPage() {
       alert('Sunucuya bağlanırken bir hata oluştu.');
     } finally {
       setSyncing(prev => ({ ...prev, [product.id]: false }));
+      fetchProducts();
     }
   };
 
@@ -332,8 +336,7 @@ export default function RepricingReportPage() {
                       <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Manuel Fiyat:</span>
                       <input 
                         type="number" 
-                        placeholder={myBasePrice.toString()}
-                        value={editPrice[product.id] ?? ''}
+                        value={editPrice[product.id] !== undefined ? editPrice[product.id] : myBasePrice}
                         onChange={e => handlePriceChange(product.id, e.target.value)}
                         style={{ width: '90px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                       />
@@ -342,8 +345,7 @@ export default function RepricingReportPage() {
                       <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Stok:</span>
                       <input 
                         type="number" 
-                        placeholder={currentStock.toString()}
-                        value={editStock[product.id] ?? ''}
+                        value={editStock[product.id] !== undefined ? editStock[product.id] : currentStock}
                         onChange={e => handleStockChange(product.id, e.target.value)}
                         style={{ width: '70px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                       />
