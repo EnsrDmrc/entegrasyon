@@ -129,7 +129,12 @@ async def run_n11_repricing():
                 product.our_cart_price = our_current_cart_price
                 product.cheapest_competitor_price = cheapest["price"]
                 product.cheapest_competitor_name = cheapest["seller_name"]
+                
+                import json
+                product.competitors_json = json.dumps(competitors, ensure_ascii=False)
+                
                 product.last_repricing_check = datetime.now(timezone.utc)
+                db.add(product)
                 
                 # En ucuz biz isek, kâr maksimizasyonu yap
                 price_diff = second_cheapest["price"] - cheapest["price"]

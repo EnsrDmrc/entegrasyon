@@ -2,27 +2,36 @@
 
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api';
+import { Trophy, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Save, Search, RefreshCw } from 'lucide-react';
 
 export default function RepricingReportPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [activeTab, setActiveTab] = useState<'rakipsiz' | 'ucuz' | 'pahali'>('pahali');
+  const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
+
+  // Manual update states
+  const [editPrice, setEditPrice] = useState<{ [id: number]: string }>({});
+  const [editStock, setEditStock] = useState<{ [id: number]: string }>({});
+  const [syncing, setSyncing] = useState<{ [id: number]: boolean }>({});
 
   useEffect(() => {
-    fetchReport();
+    fetchProducts();
   }, []);
 
-  const fetchReport = async () => {
+  const fetchProducts = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/repricing/expensive-products`);
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.data || []);
+        setProducts(data || []);
       } else {
-        setError('Rapor alınırken bir hata oluştu.');
+        setError('Ürünler alınırken bir hata oluştu.');
       }
     } catch (err) {
       setError('Sunucuya bağlanılamadı.');
@@ -31,323 +40,317 @@ export default function RepricingReportPage() {
     }
   };
 
-  const handleUpdatePrice = async (product: any) => {
-    if (!product.cheapest_competitor_price) return;
-    
-    // Hedef sepet fiyatımız: en ucuz rakipten 10 TL ucuz olmak
-    const targetCartPrice = product.cheapest_competitor_price - 10;
-    
-    // Eğer N11 tarafından uygulanan bir indirim varsa (Sepet Fiyatı < Liste Fiyatı)
-    let discountMultiplier = 1;
-    let discountPercentage = 0;
-    if (product.our_cart_price && product.our_price && product.our_cart_price < product.our_price) {
-      discountMultiplier = product.our_cart_price / product.our_price;
-      discountPercentage = Math.round((1 - discountMultiplier) * 100);
-    }
-    
-    // N11'e göndermemiz gereken asıl DB fiyatı (Liste Fiyatı)
-    // Matematik: Hedef Sepet Fiyatı / İndirim Çarpanı = Olması Gereken Baz Fiyat
-    let targetBasePrice = targetCartPrice;
-    if (discountMultiplier < 1) {
-      targetBasePrice = targetCartPrice / discountMultiplier;
-    }
-    
-    // Küsuratları düzeltelim
-    const formattedBasePrice = Number(targetBasePrice.toFixed(2));
-    const formattedCartPrice = Number(targetCartPrice.toFixed(2));
-    
-    let confirmMessage = `${product.name} ürününün SEPET FİYATI en ucuz rakipten 10 TL ucuza (${formattedCartPrice} TL) olarak güncellenecektir.`;
-    if (discountMultiplier < 1) {
-      confirmMessage += `\n\nDİKKAT: Ürününüzde %${discountPercentage} oranında N11 yüzdelik indirimi tespit edildi!`;
-      confirmMessage += `\n- Sizin DB Fiyatınız: ${product.our_price} TL`;
-      confirmMessage += `\n- N11 Sepet Fiyatınız: ${product.our_cart_price} TL`;
-      confirmMessage += `\n- İndirim Oranı: %${discountPercentage}`;
-      confirmMessage += `\n- Rakibin Sepet Fiyatı: ${product.cheapest_competitor_price} TL`;
-      confirmMessage += `\n\nRakibi 10 TL geçmek için hedef Sepet Fiyatınız: ${formattedCartPrice} TL olmalıdır.`;
-      confirmMessage += `\nBu hedefe ulaşmak için %${discountPercentage} indirimi geriye dönük hesapladık (Matematik: ${formattedCartPrice} / ${(discountMultiplier).toFixed(3)}).`;
-      confirmMessage += `\nSonuç olarak sisteme (N11/Shopify) iletilecek olan asıl LİSTE FİYATINIZ: ${formattedBasePrice} TL olarak belirlenmiştir!`;
-    } else {
-      confirmMessage += `\n\nBu fiyat (N11, Shopify vb.) sistemlere ${formattedBasePrice} TL olarak iletilecektir.`;
-    }
-    confirmMessage += `\n\nOnaylıyor musunuz?`;
-    
-    if (window.confirm(confirmMessage)) {
-      try {
-        const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${product.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ price: formattedBasePrice })
-        });
-        
-        if (res.ok) {
-          alert('Fiyat başarıyla güncellendi ve sistemlere iletildi!');
-          fetchReport();
-        } else {
-          alert('Fiyat güncellenirken bir hata oluştu.');
-        }
-      } catch (err) {
-        alert('Sunucuya bağlanırken bir hata oluştu.');
-      }
+  const parseCompetitors = (jsonStr: string) => {
+    try {
+      if (!jsonStr) return [];
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      return [];
     }
   };
 
-  const filteredProducts = products.filter(p => 
+  const getStockFromInventories = (product: any) => {
+    if (product.inventories && product.inventories.length > 0) {
+      return product.inventories[0].quantity;
+    }
+    return 0;
+  };
+
+  const handleUpdate = async (product: any, actionType: 'manual' | 'auto_minus_10') => {
+    let targetBasePrice = 0;
+    let targetStock = getStockFromInventories(product);
+    
+    if (actionType === 'auto_minus_10') {
+      if (!product.cheapest_competitor_price) return;
+      const targetCartPrice = product.cheapest_competitor_price - 10;
+      
+      let discountMultiplier = 1;
+      let discountPercentage = 0;
+      if (product.our_cart_price && product.price && product.our_cart_price < product.price) {
+        discountMultiplier = product.our_cart_price / product.price;
+        discountPercentage = Math.round((1 - discountMultiplier) * 100);
+      }
+      
+      targetBasePrice = targetCartPrice;
+      if (discountMultiplier < 1) {
+        targetBasePrice = targetCartPrice / discountMultiplier;
+      }
+      targetBasePrice = Number(targetBasePrice.toFixed(2));
+      
+      let confirmMessage = `${product.name} ürününün SEPET FİYATI rakibinizden 10 TL ucuz (${targetCartPrice.toFixed(2)} TL) olacak şekilde ayarlanacaktır.`;
+      if (discountMultiplier < 1) {
+        confirmMessage += `\n\nN11 %${discountPercentage} indirimi tespit edildi! Liste fiyatınız ${targetBasePrice} TL olarak gönderilecektir.`;
+      }
+      confirmMessage += `\nOnaylıyor musunuz?`;
+      
+      if (!window.confirm(confirmMessage)) return;
+      
+    } else {
+      // Manual edit
+      const p = parseFloat(editPrice[product.id]);
+      if (isNaN(p) || p <= 0) {
+        alert('Geçerli bir fiyat giriniz.'); return;
+      }
+      targetBasePrice = p;
+      
+      const s = parseInt(editStock[product.id]);
+      if (!isNaN(s)) {
+        targetStock = s;
+      }
+    }
+
+    setSyncing(prev => ({ ...prev, [product.id]: true }));
+    try {
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: targetBasePrice, quantity: targetStock })
+      });
+      
+      if (res.ok) {
+        alert('Fiyat ve stok başarıyla güncellendi! Tüm platformlara senkronize ediliyor...');
+        fetchProducts(); // refresh
+      } else {
+        alert('Güncelleme sırasında bir hata oluştu.');
+      }
+    } catch (err) {
+      alert('Sunucuya bağlanırken bir hata oluştu.');
+    } finally {
+      setSyncing(prev => ({ ...prev, [product.id]: false }));
+    }
+  };
+
+  const handlePriceChange = (id: number, val: string) => setEditPrice(prev => ({ ...prev, [id]: val }));
+  const handleStockChange = (id: number, val: string) => setEditStock(prev => ({ ...prev, [id]: val }));
+
+  // Categorize products
+  const rakipsiz: any[] = [];
+  const ucuz: any[] = [];
+  const pahali: any[] = [];
+
+  const searchedProducts = products.filter(p => 
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  return (
-    <div className="report-container" style={{
-      padding: '2rem',
-      background: 'linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)',
-      minHeight: '100vh',
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      <style>{`
-        .glass-card {
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-          padding: 2rem;
-          margin-bottom: 2rem;
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .glass-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
-        }
-        .header-gradient {
-          background: linear-gradient(120deg, #2563eb, #7c3aed);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .search-input {
-          width: 100%;
-          max-width: 400px;
-          padding: 0.75rem 1.5rem 0.75rem 3rem;
-          border-radius: 999px;
-          border: 1px solid rgba(0,0,0,0.1);
-          background: white;
-          font-size: 0.95rem;
-          transition: all 0.2s;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
-        .search-input:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .styled-table {
-          width: 100%;
-          border-collapse: separate;
-          border-spacing: 0 12px;
-        }
-        .styled-table th {
-          background: transparent;
-          color: #64748b;
-          font-weight: 600;
-          text-transform: uppercase;
-          font-size: 0.75rem;
-          letter-spacing: 0.05em;
-          padding: 1rem 1.5rem;
-          text-align: left;
-          border-bottom: 2px solid #e2e8f0;
-        }
-        .styled-table td {
-          background: white;
-          padding: 1.25rem 1.5rem;
-          color: #334155;
-          font-size: 0.95rem;
-        }
-        .styled-table tr td:first-child {
-          border-top-left-radius: 12px;
-          border-bottom-left-radius: 12px;
-        }
-        .styled-table tr td:last-child {
-          border-top-right-radius: 12px;
-          border-bottom-right-radius: 12px;
-        }
-        .styled-table tbody tr {
-          box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-          transition: all 0.2s;
-        }
-        .styled-table tbody tr:hover {
-          transform: scale(1.005);
-          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
-        }
-        .sku-badge {
-          background: #f1f5f9;
-          color: #475569;
-          padding: 0.25rem 0.75rem;
-          border-radius: 6px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          font-family: monospace;
-          border: 1px solid #e2e8f0;
-        }
-        .price-diff-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.4rem 0.8rem;
-          border-radius: 999px;
-          font-weight: 700;
-          font-size: 0.85rem;
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-          border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-        .competitor-badge {
-          background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
-          color: #be185d;
-          padding: 0.35rem 0.85rem;
-          border-radius: 999px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          border: 1px solid #f9a8d4;
-        }
-        .action-button {
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 0.85rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
-        }
-        .action-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4);
-        }
-      `}</style>
+  searchedProducts.forEach(p => {
+    // Only categorize if it has been repriced (last_repricing_check exists)
+    if (!p.last_repricing_check) return;
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+    const comps = parseCompetitors(p.competitors_json);
+    if (!comps || comps.length === 0 || !p.cheapest_competitor_price || p.cheapest_competitor_price === 0) {
+      rakipsiz.push(p);
+    } else {
+      const myPrice = p.our_cart_price || p.price;
+      if (myPrice <= p.cheapest_competitor_price) {
+        ucuz.push(p);
+      } else {
+        pahali.push(p);
+      }
+    }
+  });
+
+  const getActiveList = () => {
+    if (activeTab === 'rakipsiz') return rakipsiz;
+    if (activeTab === 'ucuz') return ucuz;
+    return pahali;
+  };
+
+  const activeList = getActiveList();
+
+  return (
+    <div style={{ padding: '2rem', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h1 className="header-gradient" style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-            Fiyat Fırsatları Raporu
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '1.05rem', marginTop: '0.5rem', maxWidth: '600px', lineHeight: 1.5 }}>
-            Rakip fiyatlarının gerisinde kalarak satış kaçırdığınız ürünleri burada keşfedin. Pazar payınızı geri almak için fiyatlarınızı optimize edin.
-          </p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Fırsat ve Rakip Analizi</h1>
+          <p style={{ color: '#64748b', marginTop: '0.5rem' }}>Rakiplerinizin fiyat ve stoklarını anlık izleyin, manuel aksiyon alın.</p>
         </div>
-        
         <div style={{ position: 'relative' }}>
-          <svg style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input 
             type="text" 
-            placeholder="Ürün adı veya SKU ara..." 
-            className="search-input"
+            placeholder="Ürün veya SKU ara..." 
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
+            style={{ padding: '0.75rem 1.5rem 0.75rem 2.5rem', borderRadius: '999px', border: '1px solid #e2e8f0', width: '300px', outline: 'none' }}
           />
         </div>
       </div>
 
-      {error && (
-        <div style={{ background: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#991b1b', padding: '1rem 1.5rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 500 }}>
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          {error}
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid #e2e8f0' }}>
+        <button 
+          onClick={() => setActiveTab('pahali')}
+          style={{ 
+            padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
+            fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
+            color: activeTab === 'pahali' ? '#ef4444' : '#64748b',
+            borderBottom: activeTab === 'pahali' ? '3px solid #ef4444' : '3px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          <AlertTriangle size={20} />
+          Pahalı Kaldıklarımız ({pahali.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('ucuz')}
+          style={{ 
+            padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
+            fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
+            color: activeTab === 'ucuz' ? '#10b981' : '#64748b',
+            borderBottom: activeTab === 'ucuz' ? '3px solid #10b981' : '3px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          <TrendingUp size={20} />
+          En Ucuz Biziz ({ucuz.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('rakipsiz')}
+          style={{ 
+            padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
+            fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
+            color: activeTab === 'rakipsiz' ? '#3b82f6' : '#64748b',
+            borderBottom: activeTab === 'rakipsiz' ? '3px solid #3b82f6' : '3px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          <Trophy size={20} />
+          Rakipsiz (Tek Satıcı) ({rakipsiz.length})
+        </button>
+      </div>
 
       {loading ? (
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <p style={{ marginTop: '1rem', color: '#64748b', fontWeight: 500 }}>Veriler analiz ediliyor...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      ) : products.length === 0 ? (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <div style={{ width: '80px', height: '80px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-            <svg width="40" height="40" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          </div>
-          <h2 style={{ color: '#0f172a', fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Her Şey Mükemmel!</h2>
-          <p style={{ color: '#64748b', fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto' }}>
-            Şu anda rekabette geride kaldığınız hiçbir ürün bulunmuyor. Sistemimiz tüm ürünlerinizde en rekabetçi fiyatı sizin adınıza koruyor. 🎉
-          </p>
+        <div style={{ textAlign: 'center', padding: '3rem' }}>Yükleniyor...</div>
+      ) : activeList.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', background: 'white', borderRadius: '12px', color: '#64748b' }}>
+          Bu kategoride ürün bulunamadı.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', paddingBottom: '2rem' }}>
-          <table className="styled-table">
-            <thead>
-              <tr>
-                <th>Ürün Bilgisi</th>
-                <th>Sizin Fiyatınız</th>
-                <th>Rakip Fiyatı</th>
-                <th>En Ucuz Satıcı</th>
-                <th>Fiyat Farkı (Kayıp)</th>
-                <th>Tespit Zamanı</th>
-                <th>Aksiyon</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((p, idx) => {
-                const diff = (p.our_cart_price || p.our_price || 0) - (p.cheapest_competitor_price || 0);
-                return (
-                  <tr key={idx}>
-                    <td style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <span style={{ fontWeight: 600, color: '#0f172a', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</span>
-                      <span className="sku-badge" style={{ alignSelf: 'flex-start' }}>{p.sku}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155' }}>
-                          {(p.our_cart_price || p.our_price)?.toLocaleString('tr-TR')} TL
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                          {p.our_cart_price ? 'N11 Sepet Fiyatı' : 'İndirimsiz DB Fiyatı'}
-                        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {activeList.map(product => {
+            const comps = parseCompetitors(product.competitors_json);
+            const myCartPrice = product.our_cart_price || product.price;
+            const myBasePrice = product.price;
+            const diff = activeTab === 'pahali' ? (myCartPrice - (product.cheapest_competitor_price || 0)) : 0;
+            const isExpanded = expandedProduct === product.id;
+            const currentStock = getStockFromInventories(product);
+            const hasDiscount = myCartPrice < myBasePrice;
+
+            return (
+              <div key={product.id} style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                {/* Main Row */}
+                <div style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2rem' }}>
+                  
+                  <div style={{ flex: '2', minWidth: '200px' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem' }}>{product.name}</div>
+                    <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#475569' }}>{product.sku}</span>
+                  </div>
+
+                  <div style={{ flex: '1' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.2rem' }}>Sepet Fiyatımız</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155' }}>
+                      {myCartPrice.toLocaleString('tr-TR')} TL
+                    </div>
+                    {hasDiscount && (
+                      <div style={{ fontSize: '0.75rem', color: '#8b5cf6', fontWeight: 600, marginTop: '0.2rem' }}>
+                        *N11 İndirimi Var (Liste: {myBasePrice} TL)
                       </div>
-                    </td>
-                    <td>
+                    )}
+                  </div>
+
+                  {activeTab !== 'rakipsiz' && (
+                    <div style={{ flex: '1' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.2rem' }}>En Ucuz Rakip</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: activeTab === 'pahali' ? '#ef4444' : '#10b981' }}>
+                        {product.cheapest_competitor_price?.toLocaleString('tr-TR')} TL
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>{product.cheapest_competitor_name}</div>
+                    </div>
+                  )}
+
+                  <div style={{ flex: '1.5', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#16a34a' }}>
-                          {p.cheapest_competitor_price?.toLocaleString('tr-TR')} TL
-                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', width: '40px' }}>Fiyat:</span>
+                        <input 
+                          type="number" 
+                          placeholder={myBasePrice.toString()}
+                          value={editPrice[product.id] ?? ''}
+                          onChange={e => handlePriceChange(product.id, e.target.value)}
+                          style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
                       </div>
-                    </td>
-                    <td>
-                      <span className="competitor-badge">
-                        {p.cheapest_competitor_name || 'Bilinmiyor'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="price-diff-badge">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
-                        +{diff.toLocaleString('tr-TR')} TL
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', width: '40px' }}>Stok:</span>
+                        <input 
+                          type="number" 
+                          placeholder={currentStock.toString()}
+                          value={editStock[product.id] ?? ''}
+                          onChange={e => handleStockChange(product.id, e.target.value)}
+                          style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
                       </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', fontSize: '0.85rem' }}>
-                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        {p.last_checked ? new Date(p.last_checked).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </div>
-                    </td>
-                    <td>
-                      <button className="action-button" onClick={() => handleUpdatePrice(p)}>
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                        Fiyatı Güncelle (-10 TL)
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleUpdate(product, 'manual')}
+                      disabled={syncing[product.id]}
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      {syncing[product.id] ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                      Kaydet
+                    </button>
+                  </div>
+                  
+                  {activeTab === 'pahali' && (
+                    <button 
+                      onClick={() => handleUpdate(product, 'auto_minus_10')}
+                      style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      -10 TL Yap
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
+                    style={{ background: 'transparent', border: '1px solid #e2e8f0', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
+                  >
+                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </div>
+
+                {/* Expanded Accordion for Competitors */}
+                {isExpanded && (
+                  <div style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '1.5rem' }}>
+                    <h4 style={{ margin: '0 0 1rem 0', color: '#334155', fontSize: '1rem' }}>Rakip Analizi</h4>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
+                          <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Satıcı Adı</th>
+                          <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Sepet Fiyatı</th>
+                          <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Liste Fiyatı</th>
+                          <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Stok</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comps.map((c: any, i: number) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.75rem', fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{c.seller_name}</td>
+                            <td style={{ padding: '0.75rem', fontSize: '0.9rem', color: '#16a34a', fontWeight: 700 }}>{c.price.toLocaleString('tr-TR')} TL</td>
+                            <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#64748b' }}>{c.base_price ? c.base_price.toLocaleString('tr-TR') + ' TL' : '-'}</td>
+                            <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>{c.stock ? c.stock + ' Adet' : 'Bilinmiyor'}</td>
+                          </tr>
+                        ))}
+                        {comps.length === 0 && (
+                          <tr><td colSpan={4} style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Rakip bilgisi bulunamadı.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

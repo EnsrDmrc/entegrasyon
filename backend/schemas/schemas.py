@@ -73,6 +73,11 @@ class ProductResponse(BaseModel):
     price: float
     n11_url: Optional[str] = None
     inventories: List[InventoryResponse] = []
+    our_cart_price: Optional[float] = None
+    cheapest_competitor_price: Optional[float] = None
+    cheapest_competitor_name: Optional[str] = None
+    last_repricing_check: Optional[datetime] = None
+    competitors_json: Optional[str] = None
 
     class Config:
         from_attributes = True

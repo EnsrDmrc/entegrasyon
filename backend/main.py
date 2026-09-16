@@ -71,6 +71,12 @@ async def lifespan(app: FastAPI):
             await session.commit()
         except Exception:
             await session.rollback()
+            
+        try:
+            await session.execute(text("ALTER TABLE products ADD COLUMN competitors_json VARCHAR;"))
+            await session.commit()
+        except Exception:
+            await session.rollback()
 
     # from services.repricing import repricing_loop
     

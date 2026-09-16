@@ -25,6 +25,7 @@ class Product(Base):
     cheapest_competitor_price = Column(Float, nullable=True)
     cheapest_competitor_name = Column(String, nullable=True)
     last_repricing_check = Column(DateTime(timezone=True), nullable=True)
+    competitors_json = Column(String, nullable=True) # JSON formatında tüm rakipler
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

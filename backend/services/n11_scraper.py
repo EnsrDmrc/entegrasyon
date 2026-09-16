@@ -98,11 +98,20 @@ class N11Scraper:
                                     if base_price > 0 and cart_price < base_price:
                                         platform_discount = 1 - (cart_price / base_price)
                                         
+                                    stock_val = 0
+                                    if item.get("stockAmount"):
+                                        stock_val = int(item.get("stockAmount"))
+                                    elif item.get("quantity"):
+                                        stock_val = int(item.get("quantity"))
+                                    elif item.get("maxQuantity"):
+                                        stock_val = int(item.get("maxQuantity"))
+                                        
                                     competitors.append({
                                         "seller_name": str(seller_name).strip(),
                                         "price": cart_price,
                                         "base_price": base_price,
-                                        "platform_discount": platform_discount
+                                        "platform_discount": platform_discount,
+                                        "stock": stock_val
                                     })
                                     
                         elif not is_search_url and "product" in data and "seller" in data["product"]:
@@ -138,10 +147,20 @@ class N11Scraper:
                                     cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
                             
                             discount_rate = p.get("discountRate", 0)
+                            
+                            stock_val = 0
+                            if p.get("stockAmount"):
+                                stock_val = int(p.get("stockAmount"))
+                            elif p.get("quantity"):
+                                stock_val = int(p.get("quantity"))
+                            elif p.get("maxQuantity"):
+                                stock_val = int(p.get("maxQuantity"))
+                                
                             competitors.append({
                                 "seller_name": str(seller_name).strip() if seller_name else "Unknown",
                                 "price": float(cart_price),
-                                "discount_rate": float(discount_rate or 0)
+                                "discount_rate": float(discount_rate or 0),
+                                "stock": stock_val
                             })
                         break
                     except Exception as e:
@@ -173,7 +192,8 @@ class N11Scraper:
                         competitors.append({
                             "seller_name": s_name,
                             "price": price_val,
-                            "discount_rate": 0.0
+                            "discount_rate": 0.0,
+                            "stock": 0 # HTML parsing'den stock zor çıkar
                         })
 
             # HTML'den ana satıcının asıl liste fiyatını (oldPrice) veya indirimini de bulmayı deneyebiliriz
