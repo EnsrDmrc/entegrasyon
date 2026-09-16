@@ -83,35 +83,61 @@ async def run_n11_repricing():
                     from bs4 import BeautifulSoup
                     from curl_cffi import requests as curl_requests
                     
-                    search_query = product.sku
-                    encoded_q = urllib.parse.quote(search_query)
-                    search_url = f"https://www.n11.com/arama?q={encoded_q}"
                     
-                    try:
-                        resp = curl_requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}, impersonate="chrome110", timeout=10.0)
-                        if resp.status_code == 200:
-                            soup = BeautifulSoup(resp.text, 'lxml')
-                            for script in soup.find_all('script'):
-                                if script.string and 'window.model = ' in script.string:
-                                    raw = script.string.strip()
-                                    start = raw.find('window.model = ') + len('window.model = ')
-                                    jstr = raw[start:]
-                                    if jstr.endswith(';'): jstr = jstr[:-1]
-                                    data = json.loads(jstr)
-                                    results = data.get('searchResults', [])
-                                    if results and len(results) > 0:
-                                        first_item = results[0]
-                                        found_url = first_item.get('url') or first_item.get('productUrl')
-                                        if found_url:
-                                            if found_url.startswith('/'):
-                                                found_url = 'https://www.n11.com' + found_url
-                                            product.n11_url = found_url
-                                            db.add(product)
-                                            await db.commit()
-                                            logger.info(f"[Repricing] {product.sku} için link bulundu: {found_url}")
-                                            break
-                    except Exception as e:
-                        logger.error(f"[Repricing] {product.sku} aranırken hata: {e}")
+                    async def fetch_n11_search(query: str):
+                        try:
+                            q = urllib.parse.quote(query)
+                            url = f"https://www.n11.com/arama?q={q}"
+                            resp = curl_requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, impersonate="chrome110", timeout=10.0)
+                            if resp.status_code == 200:
+                                soup = BeautifulSoup(resp.text, 'lxml')
+                                for script in soup.find_all('script'):
+                                    if script.string and 'window.model = ' in script.string:
+                                        raw = script.string.strip()
+                                        start = raw.find('window.model = ') + len('window.model = ')
+                                        jstr = raw[start:]
+                                        if jstr.endswith(';'): jstr = jstr[:-1]
+                                        data = json.loads(jstr)
+                                        return data.get('searchResults', [])
+                        except Exception as e:
+                            logger.error(f"[Repricing] Arama hatası ({query}): {e}")
+                        return []
+
+                    # 1. Try SKU search
+                    results = await fetch_n11_search(product.sku)
+                    
+                    # 2. If SKU search fails, try Name search
+                    if not results and product.name:
+                        logger.info(f"[Repricing] SKU ile bulunamadı, isim ile aranıyor: {product.name}")
+                        results = await fetch_n11_search(product.name)
+
+                    if results:
+                        target_item = results[0]
+                        
+                        # If we searched by name, we need to be more careful and try to match our store
+                        if len(results) > 1:
+                            t_clean = tenant.name.replace(" ", "").lower()
+                            for item in results:
+                                s_name = item.get("sellerNickName", "").replace(" ", "").lower()
+                                if s_name and (t_clean in s_name or s_name in t_clean):
+                                    target_item = item
+                                    break
+                                    
+                        found_url = target_item.get('url') or target_item.get('productUrl')
+                        if found_url:
+                            if found_url.startswith('/'):
+                                found_url = 'https://www.n11.com' + found_url
+                                
+                            # ! CRITICAL FIX: Strip query parameters (like ?magaza=) to see ALL competitors !
+                            if '?' in found_url:
+                                found_url = found_url.split('?')[0]
+                                
+                            product.n11_url = found_url
+                            db.add(product)
+                            await db.commit()
+                            logger.info(f"[Repricing] {product.sku} için link bulundu: {found_url}")
+                    else:
+                        logger.info(f"[Repricing] {product.sku} için sonuç bulunamadı.")
                 
                 if not product.n11_url:
                     logger.info(f"[Repricing] {product.sku} için N11 URL bulunamadı, atlanıyor.")
@@ -119,8 +145,15 @@ async def run_n11_repricing():
                     
                 # Rakipleri çek
                 logger.info(f"[Repricing] {product.sku} için N11 URL: {product.n11_url}")
-                competitors = scraper.get_competitors(product.n11_url)
-                import json
+                
+                # CRITICAL: Clean URL before scraping to ensure we see ALL competitors (not just ?magaza= filter)
+                clean_url = product.n11_url
+                if '?' in clean_url:
+                    clean_url = clean_url.split('?')[0]
+                    # Also update it in DB to fix previously saved bad URLs
+                    product.n11_url = clean_url
+                    
+                competitors = scraper.get_competitors(clean_url)
                 
                 if not competitors:
                     logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
