@@ -15,14 +15,12 @@ from services.marketplace import N11Adapter
 
 async def run_n11_repricing():
     """
-    Günde 1 kez çalışacak N11 Otomatik Fiyatlandırma (Repricing) Motoru.
+    N11 Veri Toplama Motoru.
     Kural:
     - Stokta olan ve N11 URL'si girilmiş ürünleri tarar.
-    - Sadece N11 entegrasyonu aktif olan satıcılar için çalışır.
-    - Bizim ürünümüz en ucuz ise, 2. sıradaki rakibin fiyatından 10 TL ucuz olacak şekilde günceller.
-    - Fark zaten 10 TL ve altındaysa dokunmaz.
-    - En ucuz biz değilsek (veyahut tek satıcıysak) dokunmaz.
-    - N11 destekli indirim varsa (scraper'dan gelen discount_rate), hesaplanan hedef fiyata bu indirimi tersine uygulayarak ana fiyatı bulur.
+    - Tüm rakipleri, fiyatlarını ve stoklarını çeker.
+    - Veritabanına competitors_json olarak kaydeder.
+    - Eskisi gibi otomatik fiyat değiştirmez, sadece analiz yapar.
     """
     logger.info("[Repricing] N11 Otomatik Fiyatlandırma motoru başlatıldı...")
     scraper = N11Scraper()
@@ -48,11 +46,10 @@ async def run_n11_repricing():
             
             tenant_name = tenant.name.lower().strip()
             
-            # Bu tenant'ın n11_url'si olan ürünlerini bul
+            # Bu tenant'ın tüm ürünlerini bul (URL'si olmayanları da)
             products_res = await db.execute(
                 select(Product).where(
-                    Product.tenant_id == tenant.id,
-                    Product.n11_url != None
+                    Product.tenant_id == tenant.id
                 )
             )
             products = products_res.scalars().all()
@@ -71,6 +68,46 @@ async def run_n11_repricing():
                 inventory = inv_res.scalars().first()
                 if not inventory or inventory.quantity <= 0:
                     logger.info(f"[Repricing] {product.sku} stokta yok, atlanıyor.")
+                    continue
+                    
+                # N11 URL'si yoksa otomatik bul
+                if not product.n11_url and product.sku:
+                    logger.info(f"[Repricing] {product.sku} için N11 URL'si yok. Otomatik aranıyor...")
+                    import urllib.parse
+                    import json
+                    from bs4 import BeautifulSoup
+                    from curl_cffi import requests as curl_requests
+                    
+                    search_query = product.sku
+                    encoded_q = urllib.parse.quote(search_query)
+                    search_url = f"https://www.n11.com/arama?q={encoded_q}"
+                    
+                    try:
+                        resp = curl_requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}, impersonate="chrome110", timeout=10.0)
+                        if resp.status_code == 200:
+                            soup = BeautifulSoup(resp.text, 'lxml')
+                            for script in soup.find_all('script'):
+                                if script.string and 'window.model = ' in script.string:
+                                    raw = script.string.strip()
+                                    start = raw.find('window.model = ') + len('window.model = ')
+                                    jstr = raw[start:]
+                                    if jstr.endswith(';'): jstr = jstr[:-1]
+                                    data = json.loads(jstr)
+                                    results = data.get('searchResults', [])
+                                    if results and len(results) > 0:
+                                        first_item = results[0]
+                                        found_url = first_item.get('url') or first_item.get('productUrl')
+                                        if found_url:
+                                            product.n11_url = found_url
+                                            db.add(product)
+                                            await db.commit()
+                                            logger.info(f"[Repricing] {product.sku} için link bulundu: {found_url}")
+                                            break
+                    except Exception as e:
+                        logger.error(f"[Repricing] {product.sku} aranırken hata: {e}")
+                
+                if not product.n11_url:
+                    logger.info(f"[Repricing] {product.sku} için N11 URL bulunamadı, atlanıyor.")
                     continue
                     
                 # Rakipleri çek
@@ -111,70 +148,23 @@ async def run_n11_repricing():
                         our_product_info = c
                         break
                         
-                our_current_cart_price = our_product_info["price"] if our_product_info else float(product.price)
+                import json
                 
-                if not is_cheapest_us:
-                    logger.info(f"[Repricing] {product.sku} için en ucuz biz değiliz (En ucuz: {cheapest_seller_name}). Dokunulmuyor.")
-                    product.is_expensive = 1
-                    product.our_cart_price = our_current_cart_price
-                    product.cheapest_competitor_price = cheapest["price"]
-                    product.cheapest_competitor_name = cheapest["seller_name"]
-                    product.last_repricing_check = datetime.now(timezone.utc)
-                    db.add(product)
-                    await db.commit()
-                    continue
-                    
-                # En ucuz biz isek, is_expensive durumunu temizle
-                product.is_expensive = 0
+                our_current_cart_price = float(product.price)
+                if our_product_info:
+                    our_current_cart_price = our_product_info["price"]
+                
+                product.is_expensive = 1 if not is_cheapest_us else 0
                 product.our_cart_price = our_current_cart_price
                 product.cheapest_competitor_price = cheapest["price"]
                 product.cheapest_competitor_name = cheapest["seller_name"]
-                
-                import json
                 product.competitors_json = json.dumps(competitors, ensure_ascii=False)
-                
                 product.last_repricing_check = datetime.now(timezone.utc)
+                
                 db.add(product)
-                
-                # En ucuz biz isek, kâr maksimizasyonu yap
-                price_diff = second_cheapest["price"] - cheapest["price"]
-                
-                if price_diff <= 10.0:
-                    logger.info(f"[Repricing] {product.sku} için en ucuz biziz ancak 2. sıradaki ile fark {price_diff} TL (<=10). Dokunulmuyor.")
-                    continue
-                    
-                # Yeni hedef fiyat (Müşterinin göreceği nihai sepet fiyatı)
-                target_final_price = second_cheapest["price"] - 10.0
-                
-                # N11 platform indirimini DB üzerinden tahmin ediyoruz (Örn: Sepet 2500, Liste 3000 ise Çarpan = 2500/3000 = 0.8333)
-                our_base_price = float(product.price)
-                discount_multiplier = 1.0
-                if our_current_cart_price > 0 and our_base_price > 0 and our_current_cart_price < our_base_price:
-                    discount_multiplier = our_current_cart_price / our_base_price
-                
-                if discount_multiplier < 1.0:
-                    new_base_price = target_final_price / discount_multiplier
-                    discount_pct = round((1 - discount_multiplier) * 100)
-                    logger.info(f"[Repricing] {product.sku} İndirim Oranı: %{discount_pct}. Hedef Sepet: {target_final_price} TL -> API'ye gönderilecek İndirimsiz Fiyat: {new_base_price:.2f} TL")
-                else:
-                    new_base_price = target_final_price
-                    logger.info(f"[Repricing] {product.sku} için yeni fiyat hesaplandı (İndirim Yok): {new_base_price:.2f} TL")
-                    
-                # Fiyatı yuvarla (2 hane)
-                new_base_price = round(new_base_price, 2)
-                
-                # N11'e yolla
-                success = adapter.update_product(sku=product.sku, new_price=new_base_price)
-                if success:
-                    # DB'yi de güncelle
-                    product.price = new_base_price
-                    db.add(product)
-                    logger.info(f"[Repricing] {product.sku} başarıyla güncellendi!")
-                else:
-                    logger.info(f"[Repricing] {product.sku} N11 API güncellenirken hata oluştu.")
                     
         await db.commit()
-    logger.info("[Repricing] N11 Otomatik Fiyatlandırma tamamlandı.")
+    logger.info("[Repricing] N11 Veri Toplama ve Analiz tamamlandı.")
 
 async def repricing_loop():
     """
