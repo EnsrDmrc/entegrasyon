@@ -293,42 +293,8 @@ export default function RepricingReportPage() {
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>{product.cheapest_competitor_name}</div>
                     </div>
                   )}
-
-                  <div style={{ flex: '1.5', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', width: '40px' }}>Fiyat:</span>
-                        <input 
-                          type="number" 
-                          placeholder={myBasePrice.toString()}
-                          value={editPrice[product.id] ?? ''}
-                          onChange={e => handlePriceChange(product.id, e.target.value)}
-                          style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', width: '40px' }}>Stok:</span>
-                        <input 
-                          type="number" 
-                          placeholder={currentStock.toString()}
-                          value={editStock[product.id] ?? ''}
-                          onChange={e => handleStockChange(product.id, e.target.value)}
-                          style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                        />
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => handleUpdate(product, 'manual')}
-                      disabled={syncing[product.id]}
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      {syncing[product.id] ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-                      Kaydet
-                    </button>
-                  </div>
                   
-                  {activeTab === 'pahali' && (
+                  {(activeTab === 'pahali' || activeTab === 'ucuz') && (
                     <button 
                       onClick={() => handleUpdate(product, 'auto_minus_10')}
                       style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
@@ -348,7 +314,40 @@ export default function RepricingReportPage() {
                 {/* Expanded Accordion for Competitors */}
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '1.5rem' }}>
-                    <h4 style={{ margin: '0 0 1rem 0', color: '#334155', fontSize: '1rem' }}>Rakip Analizi</h4>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <h4 style={{ margin: 0, color: '#334155', fontSize: '1rem' }}>Rakip Analizi</h4>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Manuel Fiyat:</span>
+                          <input 
+                            type="number" 
+                            placeholder={myBasePrice.toString()}
+                            value={editPrice[product.id] ?? ''}
+                            onChange={e => handlePriceChange(product.id, e.target.value)}
+                            style={{ width: '90px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Stok:</span>
+                          <input 
+                            type="number" 
+                            placeholder={currentStock.toString()}
+                            value={editStock[product.id] ?? ''}
+                            onChange={e => handleStockChange(product.id, e.target.value)}
+                            style={{ width: '70px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                          />
+                        </div>
+                        <button 
+                          onClick={() => handleUpdate(product, 'manual')}
+                          disabled={syncing[product.id]}
+                          style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                        >
+                          {syncing[product.id] ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                          Kaydet ve Senkronize Et
+                        </button>
+                      </div>
+                    </div>
+                    
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                       <thead>
                         <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
