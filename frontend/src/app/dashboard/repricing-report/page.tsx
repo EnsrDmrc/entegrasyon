@@ -12,6 +12,7 @@ export default function RepricingReportPage() {
   
   const [activeTab, setActiveTab] = useState<'rakipsiz' | 'ucuz' | 'pahali'>('pahali');
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
+  const [updateProduct, setUpdateProduct] = useState<number | null>(null);
 
   // Manual update states
   const [editPrice, setEditPrice] = useState<{ [id: number]: string }>({});
@@ -294,58 +295,75 @@ export default function RepricingReportPage() {
                     </div>
                   )}
                   
-                  {(activeTab === 'pahali' || activeTab === 'ucuz') && (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button 
-                      onClick={() => handleUpdate(product, 'auto_minus_10')}
-                      style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => setUpdateProduct(updateProduct === product.id ? null : product.id)}
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
                     >
-                      -10 TL Yap
+                      Fiyat ve Stok Güncelle
                     </button>
-                  )}
-                  
-                  <button 
-                    onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
-                    style={{ background: 'transparent', border: '1px solid #e2e8f0', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
-                  >
-                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
+                    
+                    {(activeTab === 'pahali' || activeTab === 'ucuz') && (
+                      <button 
+                        onClick={() => handleUpdate(product, 'auto_minus_10')}
+                        disabled={activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10}
+                        style={{ 
+                          background: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10) ? '#94a3b8' : '#ef4444', 
+                          color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.85rem' 
+                        }}
+                      >
+                        Rakibe Göre Fiyatı Ayarla
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                      style={{ background: 'transparent', border: '1px solid #e2e8f0', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#64748b' }}
+                    >
+                      {expandedProduct === product.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                  </div>
                 </div>
 
+                {/* Update Panel */}
+                {updateProduct === product.id && (
+                  <div style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Manuel Fiyat:</span>
+                      <input 
+                        type="number" 
+                        placeholder={myBasePrice.toString()}
+                        value={editPrice[product.id] ?? ''}
+                        onChange={e => handlePriceChange(product.id, e.target.value)}
+                        style={{ width: '90px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Stok:</span>
+                      <input 
+                        type="number" 
+                        placeholder={currentStock.toString()}
+                        value={editStock[product.id] ?? ''}
+                        onChange={e => handleStockChange(product.id, e.target.value)}
+                        style={{ width: '70px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => { handleUpdate(product, 'manual'); setUpdateProduct(null); }}
+                      disabled={syncing[product.id]}
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      {syncing[product.id] ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                      Kaydet ve Senkronize Et
+                    </button>
+                  </div>
+                )}
+
                 {/* Expanded Accordion for Competitors */}
-                {isExpanded && (
+                {expandedProduct === product.id && (
                   <div style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '1.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                       <h4 style={{ margin: 0, color: '#334155', fontSize: '1rem' }}>Rakip Analizi</h4>
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Manuel Fiyat:</span>
-                          <input 
-                            type="number" 
-                            placeholder={myBasePrice.toString()}
-                            value={editPrice[product.id] ?? ''}
-                            onChange={e => handlePriceChange(product.id, e.target.value)}
-                            style={{ width: '90px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>Stok:</span>
-                          <input 
-                            type="number" 
-                            placeholder={currentStock.toString()}
-                            value={editStock[product.id] ?? ''}
-                            onChange={e => handleStockChange(product.id, e.target.value)}
-                            style={{ width: '70px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                          />
-                        </div>
-                        <button 
-                          onClick={() => handleUpdate(product, 'manual')}
-                          disabled={syncing[product.id]}
-                          style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                        >
-                          {syncing[product.id] ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-                          Kaydet ve Senkronize Et
-                        </button>
-                      </div>
                     </div>
                     
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
