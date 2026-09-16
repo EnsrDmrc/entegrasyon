@@ -22,6 +22,17 @@ export default function RepricingReportPage() {
     fetchProducts();
   }, []);
 
+  const triggerRepricing = async () => {
+    try {
+      alert("Ürün analizleri arka planda başlatıldı. İşlem ürün sayısına göre birkaç dakika sürebilir. Lütfen daha sonra sayfayı yenileyin.");
+      await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/repricing/n11/trigger`, {
+        method: 'POST'
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchProducts = async () => {
     setLoading(true);
     setError('');
@@ -165,15 +176,30 @@ export default function RepricingReportPage() {
           <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Fırsat ve Rakip Analizi</h1>
           <p style={{ color: '#64748b', marginTop: '0.5rem' }}>Rakiplerinizin fiyat ve stoklarını anlık izleyin, manuel aksiyon alın.</p>
         </div>
-        <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input 
-            type="text" 
-            placeholder="Ürün veya SKU ara..." 
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ padding: '0.75rem 1.5rem 0.75rem 2.5rem', borderRadius: '999px', border: '1px solid #e2e8f0', width: '300px', outline: 'none' }}
-          />
+        <div style={{ position: 'relative', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button
+            onClick={triggerRepricing}
+            style={{
+              background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1',
+              padding: '0.75rem 1.5rem', borderRadius: '999px', cursor: 'pointer',
+              fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            <RefreshCw size={18} />
+            Verileri Yenile
+          </button>
+          
+          <div style={{ position: 'relative' }}>
+            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input 
+              type="text" 
+              placeholder="Ürün veya SKU ara..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ padding: '0.75rem 1.5rem 0.75rem 2.5rem', borderRadius: '999px', border: '1px solid #e2e8f0', width: '300px', outline: 'none' }}
+            />
+          </div>
         </div>
       </div>
 
