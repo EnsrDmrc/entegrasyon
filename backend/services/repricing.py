@@ -78,8 +78,6 @@ async def run_n11_repricing():
                 # N11 URL'si yoksa otomatik bul
                 if not product.n11_url and product.sku:
                     logger.info(f"[Repricing] {product.sku} için N11 URL'si yok. Otomatik aranıyor...")
-                    import urllib.parse
-                    import json
                     from bs4 import BeautifulSoup
                     from curl_cffi import requests as curl_requests
                     
