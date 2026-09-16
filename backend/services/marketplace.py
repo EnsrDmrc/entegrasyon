@@ -965,23 +965,6 @@ class PazaramaAdapter(MarketplaceAdapter):
             
         return all_products
 
-    def fetch_orders(self) -> list:
-        print('[Pazarama] Siparişler çekiliyor (Simülasyon)...')
-        from datetime import datetime
-        return [
-            {
-                'order_number': f'PZ-{int(datetime.now().timestamp())}',
-                'customer_name': 'Ahmet Yılmaz (Pazarama Müşterisi)',
-                'total_price': 348.90,
-                'status': 'Yeni',
-                'order_date': datetime.now().isoformat(),
-                'items': [
-                    {'product_sku': 'PZR-001', 'product_name': 'Pazarama Test Ürünü 1', 'quantity': 1, 'price': 199.90},
-                    {'product_sku': 'PZR-002', 'product_name': 'Pazarama Özel Kampanyalı Ürün', 'quantity': 1, 'price': 149.00}
-                ]
-            }
-        ]
-
     def get_product_details(self, sku: str) -> dict:
         return {}
 
