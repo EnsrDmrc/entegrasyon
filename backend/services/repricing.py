@@ -1,10 +1,15 @@
 import asyncio
-import datetime
+import json
 import logging
+import urllib.parse
+from datetime import datetime, timezone, timedelta
 from typing import List
 
-logger = logging.getLogger("uvicorn.error")
+from bs4 import BeautifulSoup
+from curl_cffi import requests as curl_requests
 from sqlalchemy.future import select
+
+logger = logging.getLogger("uvicorn.error")
 from core.database import AsyncSessionLocal
 from models.product import Product
 from models.inventory import Inventory
@@ -155,7 +160,6 @@ async def run_n11_repricing():
                     is_cheapest_us = True
                 
                 # Bizim kendi mağazamızın anlık bilgilerini scraper sonucundan bul (Sepet fiyatımızı göstermek için)
-                from datetime import datetime, timezone
                 our_product_info = None
                 for c in competitors:
                     c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
@@ -191,10 +195,10 @@ async def repricing_loop():
     """
     logger.info("[Repricing] Döngü başlatıldı. Görev her gece 03:00'da çalışacak.")
     while True:
-        now = datetime.datetime.now()
+        now = datetime.now()
         target = now.replace(hour=3, minute=0, second=0, microsecond=0)
         if target <= now:
-            target += datetime.timedelta(days=1)
+            target += timedelta(days=1)
             
         wait_seconds = (target - now).total_seconds()
         logger.info(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var ({target}).")
