@@ -42,10 +42,19 @@ class N11Scraper:
             for script in soup.find_all('script'):
                 if script.string and 'window.model = ' in script.string:
                     raw_text = script.string.strip()
-                    start_idx = raw_text.find('window.model = ') + len('window.model = ')
-                    json_str = raw_text[start_idx:]
-                    if json_str.endswith(';'): 
-                        json_str = json_str[:-1]
+                    idx = raw_text.find('window.model = ')
+                    start_idx = raw_text.find('{', idx)
+                    open_brackets = 0
+                    end_idx = -1
+                    for i in range(start_idx, len(raw_text)):
+                        if raw_text[i] == '{': open_brackets += 1
+                        elif raw_text[i] == '}':
+                            open_brackets -= 1
+                            if open_brackets == 0:
+                                end_idx = i + 1
+                                break
+                    if end_idx != -1:
+                        json_str = raw_text[start_idx:end_idx]
                         
                     try:
                         data = json.loads(json_str)
@@ -114,14 +123,10 @@ class N11Scraper:
                                         "stock": stock_val
                                     })
                                     
-                        elif not is_search_url and "product" in data and "seller" in data["product"]:
-                            # Ana ürün sayfası, ana satıcıyı ekle
-                            p = data["product"]
-                            seller_name = p["seller"].get("nickName")
-                            
-                            # İndirimleri kontrol et
-                            base_price_raw = p.get("price")
-                            cart_price_raw = p.get("displayPrice") or base_price_raw
+                        elif not is_search_url and ("product" in data.get("data", {}) or "product" in data):
+                            # N11 yeni (data.product) veya eski (product) yapısı
+                            p = data.get("data", {}).get("product", data.get("product", {}))
+                            seller_name = p.get("seller", {}).get("nickName") if p.get("seller") else None
                             
                             def parse_price(pr):
                                 if isinstance(pr, (int, float)): return float(pr)
@@ -131,49 +136,61 @@ class N11Scraper:
                                     except: return 0.0
                                 return 0.0
                                 
-                            cart_price = parse_price(cart_price_raw)
-                            base_price = parse_price(base_price_raw)
-                            
-                            instant_discount_raw = p.get("instantDiscountPercentage")
-                            if instant_discount_raw:
-                                if isinstance(instant_discount_raw, str):
-                                    idp_str = instant_discount_raw.replace("%", "").strip()
+                            def parse_product_discount(prod_obj):
+                                base_price = parse_price(prod_obj.get("price"))
+                                cart_price = parse_price(prod_obj.get("displayPrice") or prod_obj.get("price"))
+                                
+                                instant_discount_raw = prod_obj.get("instantDiscountPercentage")
+                                if instant_discount_raw:
+                                    if isinstance(instant_discount_raw, str):
+                                        idp_str = instant_discount_raw.replace("%", "").strip()
+                                        try:
+                                            cart_price = cart_price * (1.0 - (float(idp_str) / 100.0))
+                                        except: pass
+                                    elif isinstance(instant_discount_raw, (int, float)):
+                                        cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
+                                
+                                discount_rate = prod_obj.get("discountRate", 0)
+                                if discount_rate and base_price > 0 and cart_price >= base_price:
+                                    cart_price = base_price * (1.0 - (float(discount_rate) / 100.0))
+                                    
+                                campaign_price_raw = prod_obj.get("campaignPrice")
+                                if campaign_price_raw:
                                     try:
-                                        idp_val = float(idp_str) / 100.0
-                                        cart_price = cart_price * (1.0 - idp_val)
-                                    except:
-                                        pass
-                                elif isinstance(instant_discount_raw, (int, float)):
-                                    cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
-                            
-                            discount_rate = p.get("discountRate", 0)
-                            if discount_rate and base_price > 0 and cart_price >= base_price:
-                                cart_price = base_price * (1.0 - (float(discount_rate) / 100.0))
+                                        cmp_val = float(str(campaign_price_raw).replace("TL", "").replace(".", "").replace(",", ".").strip())
+                                        if cmp_val > 0 and cmp_val < cart_price:
+                                            cart_price = cmp_val
+                                    except: pass
+                                return cart_price, base_price, float(discount_rate or 0)
                                 
-                            # Kupon veya sepet indirimi olabilir (kampanya fiyatı)
-                            campaign_price_raw = p.get("campaignPrice")
-                            if campaign_price_raw:
-                                try:
-                                    cmp_val = float(str(campaign_price_raw).replace("TL", "").replace(".", "").replace(",", ".").strip())
-                                    if cmp_val > 0 and cmp_val < cart_price:
-                                        cart_price = cmp_val
-                                except:
-                                    pass
-                            
-                            stock_val = 0
-                            if p.get("stockAmount"):
-                                stock_val = int(p.get("stockAmount"))
-                            elif p.get("quantity"):
-                                stock_val = int(p.get("quantity"))
-                            elif p.get("maxQuantity"):
-                                stock_val = int(p.get("maxQuantity"))
+                            # Ana ürünü ekle (Eğer satıcı varsa)
+                            if seller_name:
+                                cart_price, base_price, disc_rate = parse_product_discount(p)
+                                stock_val = int(p.get("stockAmount", p.get("quantity", p.get("maxQuantity", 0))))
+                                competitors.append({
+                                    "seller_name": str(seller_name).strip(),
+                                    "price": float(cart_price),
+                                    "discount_rate": disc_rate,
+                                    "stock": stock_val
+                                })
                                 
-                            competitors.append({
-                                "seller_name": str(seller_name).strip() if seller_name else "Unknown",
-                                "price": float(cart_price),
-                                "discount_rate": float(discount_rate or 0),
-                                "stock": stock_val
-                            })
+                            # Diğer satıcıları ekle (unificationInfo veya pdpModel yapısı)
+                            other_sellers_list = data.get("unificationInfo", {}).get("otherSellersProducts")
+                            if other_sellers_list is None:
+                                other_sellers_list = data.get("pdpModel", {}).get("otherSellers", [])
+                                
+                            if other_sellers_list:
+                                for s in other_sellers_list:
+                                    s_name = s.get("sellerName")
+                                    if not s_name: continue
+                                    s_cart, s_base, s_disc = parse_product_discount(s)
+                                    s_stock = int(s.get("stockAmount", s.get("quantity", s.get("maxQuantity", 0))))
+                                    competitors.append({
+                                        "seller_name": str(s_name).strip(),
+                                        "price": float(s_cart),
+                                        "discount_rate": s_disc,
+                                        "stock": s_stock
+                                    })
                         break
                     except Exception as e:
                         print(f"[N11Scraper] JSON Parse hatası: {e}")
