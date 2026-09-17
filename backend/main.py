@@ -82,6 +82,10 @@ async def lifespan(app: FastAPI):
         try:
             await session.execute(text("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%')"))
             await session.execute(text("DELETE FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%'"))
+            
+            # Sadece rakipsiz (0 rakibi olan) veya boş JSON olanları sıfırlayalım ki yeniden düzgün bulunsun.
+            await session.execute(text("UPDATE products SET n11_url = NULL WHERE competitors_json = '[]' OR competitors_json IS NULL OR competitors_json = ''"))
+            
             await session.commit()
             print("[Lifespan] Test siparişleri temizlendi.")
         except Exception as e:
