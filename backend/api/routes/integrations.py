@@ -539,6 +539,7 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
 
     sync_count = 0
     modified_prices = []
+    modified_stocks = []
     
     for item in fetched_items:
         # Ürünü SKU ile ara (Tekilleştirme / Deduplication)
@@ -561,6 +562,7 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
             db.add(product)
             await db.commit()
             await db.refresh(product)
+            modified_stocks.append((item["sku"], item["quantity"]))
         else:
             if product.price != float(item["price"]):
                 product.price = float(item["price"])
@@ -578,7 +580,9 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
         inventory = inv_result.scalars().first()
 
         if inventory:
-            inventory.quantity = item["quantity"]
+            if inventory.quantity != item["quantity"]:
+                inventory.quantity = item["quantity"]
+                modified_stocks.append((item["sku"], item["quantity"]))
         else:
             new_inv = Inventory(
                 product_id=product.id,
@@ -586,12 +590,17 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
                 quantity=item["quantity"]
             )
             db.add(new_inv)
+            # If product existed but N11 inventory didn't, we still want to push the N11 stock
+            if product:
+                modified_stocks.append((item["sku"], item["quantity"]))
         
         await db.commit()
         sync_count += 1
 
     if modified_prices:
         background_tasks.add_task(push_price_updates_to_others, current_user.tenant_id, "n11", modified_prices)
+    if modified_stocks:
+        background_tasks.add_task(push_stock_updates_to_others, current_user.tenant_id, "n11", modified_stocks)
 
     return {"message": "N11 ürünleri başarıyla senkronize edildi", "count": sync_count}
 
