@@ -273,7 +273,15 @@ export default function RepricingReportPage() {
                 <div style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2rem' }}>
                   
                   <div style={{ flex: '2', minWidth: '200px' }}>
-                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem' }}>{product.name}</div>
+                    <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>
+                      {product.n11_url ? (
+                        <a href={product.n11_url} target="_blank" rel="noopener noreferrer" style={{ color: '#0f172a', textDecoration: 'none' }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}>
+                          {product.name}
+                        </a>
+                      ) : (
+                        <span style={{ color: '#0f172a' }}>{product.name}</span>
+                      )}
+                    </div>
                     <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#475569' }}>{product.sku}</span>
                   </div>
 

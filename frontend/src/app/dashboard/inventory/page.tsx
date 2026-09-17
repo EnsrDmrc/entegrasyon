@@ -224,7 +224,15 @@ function InventoryContent() {
               sortedProducts.map((product) => (
                 <tr key={product.id}>
                   <td style={{ fontWeight: 500 }}>{product.sku}</td>
-                  <td>{product.name}</td>
+                  <td>
+                    {product.n11_url ? (
+                      <a href={product.n11_url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}>
+                        {product.name}
+                      </a>
+                    ) : (
+                      <span>{product.name}</span>
+                    )}
+                  </td>
                   <td>{product.price} ₺</td>
                   <td>
                     <span className={`badge ${product.stock > 0 ? (product.stock < 5 ? 'badge-yellow' : 'badge-green') : 'badge-red'}`}>
