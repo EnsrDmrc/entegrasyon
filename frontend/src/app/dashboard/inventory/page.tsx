@@ -146,9 +146,26 @@ function InventoryContent() {
         <h1 style={{ fontSize: '1.875rem', fontWeight: 700 }}>
           Envanter Yönetimi 
         </h1>
-        <button className="btn btn-primary" onClick={() => router.push('/dashboard/settings')}>
-          Pazaryerinden Ürün Çek
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="btn btn-secondary" style={{ background: '#f59e0b', color: 'white', border: 'none' }} onClick={async () => {
+            if(confirm("Tüm N11 ürünlerinizin sonuna magaza adınız eklenecek. Onaylıyor musunuz?")) {
+              try {
+                const r = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/fix-n11-urls`);
+                if (r.ok) {
+                  const data = await r.json();
+                  alert(data.message);
+                } else {
+                  alert("Hata oluştu.");
+                }
+              } catch(e) { alert("Hata oluştu."); }
+            }
+          }}>
+            N11 Mağaza Linklerini Onar
+          </button>
+          <button className="btn btn-primary" onClick={() => router.push('/dashboard/settings')}>
+            Pazaryerinden Ürün Çek
+          </button>
+        </div>
       </div>
 
       {success && (
@@ -224,15 +241,7 @@ function InventoryContent() {
               sortedProducts.map((product) => (
                 <tr key={product.id}>
                   <td style={{ fontWeight: 500 }}>{product.sku}</td>
-                  <td>
-                    {product.n11_url ? (
-                      <a href={product.n11_url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}>
-                        {product.name}
-                      </a>
-                    ) : (
-                      <span>{product.name}</span>
-                    )}
-                  </td>
+                  <td>{product.name}</td>
                   <td>{product.price} ₺</td>
                   <td>
                     <span className={`badge ${product.stock > 0 ? (product.stock < 5 ? 'badge-yellow' : 'badge-green') : 'badge-red'}`}>
