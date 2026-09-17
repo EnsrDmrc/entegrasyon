@@ -23,6 +23,23 @@ export default function RepricingReportPage() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      sessionStorage.setItem('repricingScrollPos', window.scrollY.toString());
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!loading && products.length > 0) {
+      const savedPos = sessionStorage.getItem('repricingScrollPos');
+      if (savedPos) {
+        setTimeout(() => window.scrollTo(0, parseInt(savedPos)), 50);
+      }
+    }
+  }, [loading, products.length]);
+
   const triggerRepricing = async () => {
     try {
       alert("Ürün analizleri arka planda başlatıldı. İşlem ürün sayısına göre birkaç dakika sürebilir. Lütfen daha sonra sayfayı yenileyin.");
@@ -168,8 +185,36 @@ export default function RepricingReportPage() {
 
   const getActiveList = () => {
     if (activeTab === 'rakipsiz') return rakipsiz;
-    if (activeTab === 'ucuz') return ucuz;
-    return pahali;
+    
+    if (activeTab === 'ucuz') {
+      return [...ucuz].sort((a, b) => {
+        const aMyPrice = a.our_cart_price || a.price;
+        const bMyPrice = b.our_cart_price || b.price;
+        const aDiff = a.cheapest_competitor_price - aMyPrice;
+        const bDiff = b.cheapest_competitor_price - bMyPrice;
+        
+        const aActive = aDiff > 10.05;
+        const bActive = bDiff > 10.05;
+        
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        
+        return bDiff - aDiff;
+      });
+    }
+    
+    if (activeTab === 'pahali') {
+      return [...pahali].sort((a, b) => {
+        const aMyPrice = a.our_cart_price || a.price;
+        const bMyPrice = b.our_cart_price || b.price;
+        const aDiff = aMyPrice - a.cheapest_competitor_price;
+        const bDiff = bMyPrice - b.cheapest_competitor_price;
+        
+        return aDiff - bDiff;
+      });
+    }
+    
+    return [];
   };
 
   const activeList = getActiveList();
