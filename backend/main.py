@@ -83,11 +83,8 @@ async def lifespan(app: FastAPI):
             await session.execute(text("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%')"))
             await session.execute(text("DELETE FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%'"))
             
-            # Kullanıcının talebi üzerine tüm n11 linklerini ve fırsat raporu verilerini komple sıfırlıyoruz.
-            await session.execute(text("UPDATE products SET n11_url = NULL, competitors_json = '[]', cheapest_competitor_price = 0, last_repricing_check = NULL"))
-            
             await session.commit()
-            print("[Lifespan] Test siparişleri ve N11 Fırsat Raporu verileri tamamen sıfırlandı.")
+            print("[Lifespan] Test siparişleri temizlendi.")
         except Exception as e:
             await session.rollback()
             print(f"[Lifespan] Test siparişleri temizlenirken hata: {e}")
