@@ -146,9 +146,14 @@ async def run_n11_repricing():
                 
                 # CRITICAL: Clean URL before scraping to ensure we see ALL competitors (not just ?magaza= filter)
                 clean_url = product.n11_url
+                if clean_url and clean_url.startswith('/'):
+                    clean_url = 'https://www.n11.com' + clean_url
+                    
                 if '?' in clean_url:
                     clean_url = clean_url.split('?')[0]
-                    # Also update it in DB to fix previously saved bad URLs
+                    
+                # DB'deki hatalı/eksik URL'yi kalıcı olarak düzelt
+                if clean_url != product.n11_url:
                     product.n11_url = clean_url
                     
                 competitors = scraper.get_competitors(clean_url)
