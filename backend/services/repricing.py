@@ -88,8 +88,13 @@ async def run_n11_repricing():
                     clean_url = 'https://www.n11.com' + clean_url
                     
                 if '?' in clean_url:
-                    clean_url = clean_url.split('?')[0]
-                    
+                    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                    parsed = urlparse(clean_url)
+                    qs = parse_qs(parsed.query)
+                    if 'magaza' in qs:
+                        del qs['magaza']
+                    new_query = urlencode(qs, doseq=True)
+                    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
                 # DB'deki hatalı/eksik URL'yi kalıcı olarak düzelt
                 if clean_url != product.n11_url:
                     product.n11_url = clean_url
