@@ -268,12 +268,22 @@ class N11Adapter(MarketplaceAdapter):
             cat_obj = prod.get('category') or {}
             category_id = cat_obj.get('id')
             category_name = cat_obj.get('name') or cat_obj.get('fullName') or ""
+            
+            qty = 0
+            if prod.get('stockItems') and isinstance(prod['stockItems'], dict) and prod['stockItems'].get('stockItem'):
+                st_items = prod['stockItems']['stockItem']
+                if not isinstance(st_items, list):
+                    st_items = [st_items]
+                for st in st_items:
+                    if isinstance(st, dict) and st.get('quantity'):
+                        qty += int(st['quantity'])
                 
             return {
                 "sku": sku,
                 "name": prod.get('title', ''),
                 "description": description,
                 "price": float(prod.get('price', 0.0)) if prod.get('price') else 0.0,
+                "quantity": qty,
                 "images": images,
                 "category_id": category_id,
                 "category_name": category_name,
@@ -284,6 +294,7 @@ class N11Adapter(MarketplaceAdapter):
             
     def fetch_all_products(self) -> list:
         fetched_variants = []
+        import concurrent.futures
         try:
             current_page = 0
             page_size = 100
@@ -302,26 +313,31 @@ class N11Adapter(MarketplaceAdapter):
                 if not res.products or not res.products.product:
                     break
                     
+                skus_in_page = []
                 for prod in res.products.product:
                     sku = prod.productSellerCode
-                    if not sku:
-                        continue
-                    
-                    price = float(prod.price) if prod.price else 0.0
-                    
-                    qty = 0
-                    if hasattr(prod, 'stockItems') and prod.stockItems:
-                        if hasattr(prod.stockItems, 'stockItem') and prod.stockItems.stockItem:
-                            for st in prod.stockItems.stockItem:
-                                qty += (int(st.quantity) if st.quantity else 0)
-                    
-                    fetched_variants.append({
-                        "sku": sku,
-                        "name": prod.title or "",
-                        "price": price,
-                        "quantity": qty,
-                        "marketplace": "n11"
-                    })
+                    if sku:
+                        skus_in_page.append(sku)
+                
+                def safe_get(sku):
+                    try:
+                        return self.get_product_details(sku)
+                    except Exception as e:
+                        print(f"[N11 Stock Fetch Error] {sku}: {e}")
+                        return None
+                
+                # Fetch reliable quantity and price via get_product_details concurrently
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    results = executor.map(safe_get, skus_in_page)
+                    for detail in results:
+                        if detail:
+                            fetched_variants.append({
+                                "sku": detail["sku"],
+                                "name": detail["name"],
+                                "price": detail["price"],
+                                "quantity": detail["quantity"],
+                                "marketplace": "n11"
+                            })
                 
                 current_page += 1
                 if current_page > total_pages:
