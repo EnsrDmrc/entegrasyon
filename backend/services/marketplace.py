@@ -326,18 +326,18 @@ class N11Adapter(MarketplaceAdapter):
                         print(f"[N11 Stock Fetch Error] {sku}: {e}")
                         return None
                 
-                # Fetch reliable quantity and price via get_product_details concurrently
-                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                    results = executor.map(safe_get, skus_in_page)
-                    for detail in results:
-                        if detail:
-                            fetched_variants.append({
-                                "sku": detail.get("sku", ""),
-                                "name": detail.get("name", ""),
-                                "price": detail.get("price", 0.0),
-                                "quantity": detail.get("quantity", 0),
-                                "marketplace": "n11"
-                            })
+                # Fetch reliable quantity and price via get_product_details sequentially
+                # because zeep.Client is not thread-safe and may cause silent failures
+                for sku in skus_in_page:
+                    detail = safe_get(sku)
+                    if detail:
+                        fetched_variants.append({
+                            "sku": detail.get("sku", ""),
+                            "name": detail.get("name", ""),
+                            "price": detail.get("price", 0.0),
+                            "quantity": detail.get("quantity", 0),
+                            "marketplace": "n11"
+                        })
                 
                 current_page += 1
                 if current_page > total_pages:

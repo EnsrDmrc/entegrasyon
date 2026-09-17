@@ -582,7 +582,10 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
         if inventory:
             if inventory.quantity != item.get("quantity", 0):
                 inventory.quantity = item.get("quantity", 0)
-                modified_stocks.append((item["sku"], item.get("quantity", 0)))
+                modified_stocks.append((item.get("sku", ""), item.get("quantity", 0)))
+                # Update all other local inventories for this product
+                from sqlalchemy import update
+                await db.execute(update(Inventory).where(Inventory.product_id == product.id).values(quantity=item.get("quantity", 0)))
         else:
             new_inv = Inventory(
                 product_id=product.id,
@@ -592,7 +595,9 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
             db.add(new_inv)
             # If product existed but N11 inventory didn't, we still want to push the N11 stock
             if product:
-                modified_stocks.append((item["sku"], item.get("quantity", 0)))
+                modified_stocks.append((item.get("sku", ""), item.get("quantity", 0)))
+                from sqlalchemy import update
+                await db.execute(update(Inventory).where(Inventory.product_id == product.id).values(quantity=item.get("quantity", 0)))
         
         await db.commit()
         sync_count += 1
