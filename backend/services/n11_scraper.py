@@ -140,20 +140,8 @@ class N11Scraper:
                                 base_price = parse_price(prod_obj.get("price"))
                                 cart_price = parse_price(prod_obj.get("displayPrice") or prod_obj.get("price"))
                                 
-                                instant_discount_raw = prod_obj.get("instantDiscountPercentage")
-                                if instant_discount_raw:
-                                    if isinstance(instant_discount_raw, str):
-                                        idp_str = instant_discount_raw.replace("%", "").strip()
-                                        try:
-                                            cart_price = cart_price * (1.0 - (float(idp_str) / 100.0))
-                                        except: pass
-                                    elif isinstance(instant_discount_raw, (int, float)):
-                                        cart_price = cart_price * (1.0 - (float(instant_discount_raw) / 100.0))
-                                
-                                discount_rate = prod_obj.get("discountRate", 0)
-                                if discount_rate and base_price > 0 and cart_price >= base_price:
-                                    cart_price = base_price * (1.0 - (float(discount_rate) / 100.0))
-                                    
+                                # displayPrice genellikle sepetteki son fiyattır. Eğer displayPrice yoksa
+                                # ve campaignPrice varsa onu kullanırız.
                                 campaign_price_raw = prod_obj.get("campaignPrice")
                                 if campaign_price_raw:
                                     try:
@@ -161,7 +149,8 @@ class N11Scraper:
                                         if cmp_val > 0 and cmp_val < cart_price:
                                             cart_price = cmp_val
                                     except: pass
-                                return cart_price, base_price, float(discount_rate or 0)
+                                
+                                return cart_price, base_price, 0.0
                                 
                             # Ana ürünü ekle (Eğer satıcı varsa)
                             if seller_name:
