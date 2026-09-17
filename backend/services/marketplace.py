@@ -1120,6 +1120,10 @@ class PazaramaAdapter(MarketplaceAdapter):
                     
                     customer_name = pkg.get("customerName", "Pazarama Müşterisi")
                     
+                    # Pazarama API'sinin gönderdiği test siparişlerini yoksay
+                    if "test" in str(order_number).lower() or "test" in str(customer_name).lower():
+                        continue
+                        
                     items = []
                     total_price = 0.0
                     

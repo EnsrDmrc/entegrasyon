@@ -77,9 +77,17 @@ async def lifespan(app: FastAPI):
             await session.commit()
         except Exception:
             await session.rollback()
+            
+        # Pazarama test siparişlerini temizle (Geçmişte çekilmiş olanları siler)
+        try:
+            await session.execute(text("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%')"))
+            await session.execute(text("DELETE FROM orders WHERE LOWER(order_number) LIKE '%test%' OR LOWER(customer_name) LIKE '%test%'"))
+            await session.commit()
+            print("[Lifespan] Test siparişleri temizlendi.")
+        except Exception as e:
+            await session.rollback()
+            print(f"[Lifespan] Test siparişleri temizlenirken hata: {e}")
 
-    # from services.repricing import repricing_loop
-    
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
     task = asyncio.create_task(order_patrol_loop())
     # Geçici olarak otomatik repricing durduruldu (kullanıcı talebi)
