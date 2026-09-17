@@ -153,6 +153,9 @@ async def run_n11_repricing():
                     
                 competitors = scraper.get_competitors(clean_url)
                 
+                # N11 rate limiting'den kaçınmak için her üründen sonra bekle
+                await asyncio.sleep(2)
+                
                 if not competitors:
                     logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
                     product.competitors_json = json.dumps([], ensure_ascii=False)
