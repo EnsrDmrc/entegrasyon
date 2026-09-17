@@ -22,8 +22,8 @@ function InventoryContent() {
     else if (filter === 'out_of_stock') setStatusFilter('out_of_stock');
   }, [filter]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/products`);
       if (response.ok) {
@@ -103,7 +103,7 @@ function InventoryContent() {
         }
         alert(msg);
         closeEditModal();
-        fetchProducts(); // Değişikliği veritabanından çekip UI'a yansıt
+        fetchProducts(true); // Yükleniyor ekranı göstermeden arkaplanda yenile
       } else {
         alert('Ürün güncellenemedi.');
       }
