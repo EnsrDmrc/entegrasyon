@@ -188,7 +188,9 @@ class N11Scraper:
             other_sellers = soup.select('.unifiedProduct.pdpSidebarUnification, .other-sellers-container .seller-list-item, .other-sellers .seller-item, li.seller, .seller-list-item, .seller-item, .seller-container, .unf-p-seller-list li')
             for s in other_sellers:
                 name_elem = s.select_one('.name, .seller-name, .store-name, .s-name, h3, a.title')
-                price_elem = s.select_one('.priceDisplay, .price, .newPrice, ins, .new-price, .s-price')
+                # DOM sırasına göre değil, önem sırasına göre seçmek için 'or' kullanıyoruz.
+                # N11 bazen <div class="price"> SEPETTE </div> veriyor, <div class="priceDisplay"> 1.046 TL </div>
+                price_elem = s.select_one('.priceDisplay') or s.select_one('.newPrice') or s.select_one('ins') or s.select_one('.new-price') or s.select_one('.price') or s.select_one('.s-price')
                 
                 if name_elem and price_elem:
                     s_name = name_elem.text.strip()
