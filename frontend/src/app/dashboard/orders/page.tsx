@@ -3,12 +3,15 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/utils/api';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 function OrdersContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter');
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useScrollRestoration('ordersScrollPos', [loading, orders.length]);
 
   const getBadgeClass = (status: string) => {
     if (!status) return 'badge-blue';

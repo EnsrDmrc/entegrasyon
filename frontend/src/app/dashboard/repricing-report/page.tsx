@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api';
 import { Trophy, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Save, Search, RefreshCw } from 'lucide-react';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 export default function RepricingReportPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -23,40 +24,7 @@ export default function RepricingReportPage() {
     fetchProducts();
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
-    let timeoutId: NodeJS.Timeout;
-    const handleScroll = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        if (window.scrollY > 0) {
-          sessionStorage.setItem('repricingScrollPos', window.scrollY.toString());
-        }
-      }, 100);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      clearTimeout(timeoutId);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!loading && products.length > 0) {
-      const savedPos = sessionStorage.getItem('repricingScrollPos');
-      if (savedPos) {
-        const pos = parseInt(savedPos);
-        if (pos > 0) {
-          setTimeout(() => window.scrollTo({ top: pos, behavior: 'instant' }), 10);
-          setTimeout(() => window.scrollTo({ top: pos, behavior: 'instant' }), 100);
-          setTimeout(() => window.scrollTo({ top: pos, behavior: 'instant' }), 500);
-        }
-      }
-    }
-  }, [loading, products.length]);
+  useScrollRestoration('repricingScrollPos', [loading, products.length]);
 
   const triggerRepricing = async () => {
     try {
