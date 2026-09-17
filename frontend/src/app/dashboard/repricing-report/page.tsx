@@ -318,10 +318,10 @@ export default function RepricingReportPage() {
                     {(activeTab === 'pahali' || activeTab === 'ucuz') && (
                       <button 
                         onClick={() => handleUpdate(product, 'auto_minus_10')}
-                        disabled={activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10}
+                        disabled={activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10.05}
                         style={{ 
-                          background: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10) ? '#94a3b8' : '#ef4444', 
-                          color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.85rem' 
+                          background: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10.05) ? '#94a3b8' : '#ef4444', 
+                          color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: (activeTab === 'ucuz' && (product.cheapest_competitor_price - product.our_cart_price) <= 10.05) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.85rem' 
                         }}
                       >
                         Rakibe Göre Fiyatı Ayarla
