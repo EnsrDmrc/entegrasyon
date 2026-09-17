@@ -332,10 +332,10 @@ class N11Adapter(MarketplaceAdapter):
                     for detail in results:
                         if detail:
                             fetched_variants.append({
-                                "sku": detail["sku"],
-                                "name": detail["name"],
-                                "price": detail["price"],
-                                "quantity": detail["quantity"],
+                                "sku": detail.get("sku", ""),
+                                "name": detail.get("name", ""),
+                                "price": detail.get("price", 0.0),
+                                "quantity": detail.get("quantity", 0),
                                 "marketplace": "n11"
                             })
                 

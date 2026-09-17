@@ -545,7 +545,7 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
         # Ürünü SKU ile ara (Tekilleştirme / Deduplication)
         prod_result = await db.execute(
             select(Product).where(
-                Product.sku == item["sku"], 
+                Product.sku == item.get("sku"), 
                 Product.tenant_id == current_user.tenant_id
             )
         )
@@ -555,20 +555,20 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
             # Yeni Ürün Ekle
             product = Product(
                 tenant_id=current_user.tenant_id,
-                name=item["name"],
-                sku=item["sku"],
-                price=item["price"]
+                name=item.get("name", ""),
+                sku=item.get("sku", ""),
+                price=item.get("price", 0.0)
             )
             db.add(product)
             await db.commit()
             await db.refresh(product)
-            modified_stocks.append((item["sku"], item["quantity"]))
+            modified_stocks.append((item.get("sku", ""), item.get("quantity", 0)))
         else:
-            if product.price != float(item["price"]):
-                product.price = float(item["price"])
+            if product.price != float(item.get("price", 0.0)):
+                product.price = float(item.get("price", 0.0))
                 db.add(product)
                 await db.commit()
-                modified_prices.append((item["sku"], product.price))
+                modified_prices.append((item.get("sku", ""), product.price))
 
         # N11 stok kaydını oluştur
         inv_result = await db.execute(
@@ -580,19 +580,19 @@ async def sync_n11(background_tasks: BackgroundTasks, current_user: User = Depen
         inventory = inv_result.scalars().first()
 
         if inventory:
-            if inventory.quantity != item["quantity"]:
-                inventory.quantity = item["quantity"]
-                modified_stocks.append((item["sku"], item["quantity"]))
+            if inventory.quantity != item.get("quantity", 0):
+                inventory.quantity = item.get("quantity", 0)
+                modified_stocks.append((item["sku"], item.get("quantity", 0)))
         else:
             new_inv = Inventory(
                 product_id=product.id,
                 marketplace="n11",
-                quantity=item["quantity"]
+                quantity=item.get("quantity", 0)
             )
             db.add(new_inv)
             # If product existed but N11 inventory didn't, we still want to push the N11 stock
             if product:
-                modified_stocks.append((item["sku"], item["quantity"]))
+                modified_stocks.append((item["sku"], item.get("quantity", 0)))
         
         await db.commit()
         sync_count += 1
