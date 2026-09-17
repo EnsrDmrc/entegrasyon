@@ -147,21 +147,6 @@ function InventoryContent() {
           Envanter Yönetimi 
         </h1>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="btn btn-secondary" style={{ background: '#f59e0b', color: 'white', border: 'none' }} onClick={async () => {
-            if(confirm("Tüm N11 ürünlerinizin sonuna magaza adınız eklenecek. Onaylıyor musunuz?")) {
-              try {
-                const r = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/users/me/fix-n11-urls`);
-                if (r.ok) {
-                  const data = await r.json();
-                  alert(data.message);
-                } else {
-                  alert("Hata oluştu.");
-                }
-              } catch(e) { alert("Hata oluştu."); }
-            }
-          }}>
-            N11 Mağaza Linklerini Onar
-          </button>
           <button className="btn btn-primary" onClick={() => router.push('/dashboard/settings')}>
             Pazaryerinden Ürün Çek
           </button>
