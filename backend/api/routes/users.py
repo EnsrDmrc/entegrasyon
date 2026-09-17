@@ -36,6 +36,16 @@ async def get_my_products(current_user: User = Depends(get_current_user), db: As
         .options(selectinload(Product.inventories))
     )
     products = result.scalars().all()
+    
+    tenant_res = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    tenant = tenant_res.scalars().first()
+    if tenant:
+        tenant_name_clean = tenant.name.replace(" ", "").lower()
+        for p in products:
+            if p.n11_url and "magaza=" not in p.n11_url.lower():
+                sep = "&" if "?" in p.n11_url else "?"
+                p.n11_url = f"{p.n11_url}{sep}magaza={tenant_name_clean}"
+                
     return products
 
 from schemas.schemas import ProductUpdateRequest
