@@ -699,23 +699,6 @@ class TrendyolAdapter(MarketplaceAdapter):
         return fetched_variants
 
     def fetch_orders(self) -> list:
-        # TEST (MOCK) MODU
-        if self.supplier_id.lower() == "test":
-            from datetime import datetime
-            return [
-                {
-                    "order_number": "TY-ORD-20001",
-                    "customer_name": "Test Müşteri Trendyol",
-                    "total_price": 205.50,
-                    "status": "Yeni Sipariş",
-                    "order_date": datetime.now().isoformat(),
-                    "items": [
-                        {"product_sku": "TY-TEST-001", "product_name": "Trendyol Test Ürünü 1", "quantity": 1, "price": 120.0},
-                        {"product_sku": "TY-TEST-002", "product_name": "Trendyol Test Ürünü 2", "quantity": 1, "price": 85.50}
-                    ]
-                }
-            ]
-            
         fetched_orders = []
         try:
             with httpx.Client() as client:
