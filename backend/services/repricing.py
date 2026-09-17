@@ -62,6 +62,10 @@ async def run_n11_repricing():
             # N11 Adapter'ı hazırla (Fiyat güncellemek için)
             adapter = N11Adapter(api_key=integration.api_key, api_secret=integration.api_secret)
             
+            # Group products by clean_url to optimize scraping
+            from collections import defaultdict
+            url_to_products = defaultdict(list)
+            
             for product in products:
                 # Stok kontrolü
                 inv_res = await db.execute(
@@ -76,13 +80,9 @@ async def run_n11_repricing():
                     continue
                     
                 if not product.n11_url:
-                    logger.info(f"[Repricing] {product.sku} için N11 URL'si yok, atlanıyor. (Manuel giriş bekleniyor)")
+                    logger.info(f"[Repricing] {product.sku} için N11 URL'si yok, atlanıyor.")
                     continue
                     
-                # Rakipleri çek
-                logger.info(f"[Repricing] {product.sku} için N11 URL: {product.n11_url}")
-                
-                # CRITICAL: Clean URL before scraping to ensure we see ALL competitors (not just ?magaza= filter)
                 clean_url = product.n11_url
                 if clean_url and clean_url.startswith('/'):
                     clean_url = 'https://www.n11.com' + clean_url
@@ -95,78 +95,100 @@ async def run_n11_repricing():
                         del qs['magaza']
                     new_query = urlencode(qs, doseq=True)
                     clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
-                # DB'deki hatalı/eksik URL'yi kalıcı olarak düzelt
-                if clean_url != product.n11_url:
-                    product.n11_url = clean_url
                     
+                url_to_products[clean_url].append(product)
+                
+            for clean_url, grouped_products in url_to_products.items():
+                logger.info(f"[Repricing] Taranan URL: {clean_url} ({len(grouped_products)} ürün bu linki kullanıyor)")
+                
+                # DB'deki hatalı/eksik URL'yi kalıcı olarak düzelt
+                for product in grouped_products:
+                    if clean_url != product.n11_url:
+                        product.n11_url = clean_url
+                        db.add(product)
+                        
                 competitors = scraper.get_competitors(clean_url)
                 
-                # N11 rate limiting'den kaçınmak için her üründen sonra bekle
+                # N11 rate limiting'den kaçınmak için her linkten sonra bekle
                 await asyncio.sleep(2)
                 
-                if not competitors:
-                    logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
-                    product.competitors_json = json.dumps([], ensure_ascii=False)
-                    product.last_repricing_check = datetime.now(timezone.utc)
-                    product.cheapest_competitor_price = 0
-                    product.cheapest_competitor_name = ""
-                    db.add(product)
-                    await db.commit()
-                    continue
+                for product in grouped_products:
+                    if not competitors:
+                        logger.info(f"[Repricing] {product.sku} için rakip bulunamadı veya sayfa okunamadı.")
+                        product.competitors_json = json.dumps([], ensure_ascii=False)
+                        product.last_repricing_check = datetime.now(timezone.utc)
+                        product.cheapest_competitor_price = 0
+                        product.cheapest_competitor_name = ""
+                        db.add(product)
+                        continue
+                        
+                    if len(competitors) == 1:
+                        logger.info(f"[Repricing] {product.sku} için sadece biz varız (tek satıcı).")
+                        product.competitors_json = json.dumps(competitors, ensure_ascii=False)
+                        product.last_repricing_check = datetime.now(timezone.utc)
+                        product.cheapest_competitor_price = 0
+                        product.cheapest_competitor_name = ""
+                        product.is_expensive = 0
+                        our_current_cart_price = competitors[0]["price"]
+                        product.our_cart_price = our_current_cart_price
+                        db.add(product)
+                        continue
+                        
+                    # Rakipler zaten küçükten büyüğe sıralı
+                    cheapest = competitors[0]
+                    second_cheapest = competitors[1]
                     
-                if len(competitors) == 1:
-                    logger.info(f"[Repricing] {product.sku} için sadece biz varız (tek satıcı).")
+                    # En ucuz biz miyiz kontrolü
+                    is_cheapest_us = False
+                    cheapest_seller_name = cheapest["seller_name"].lower().strip()
+                    tenant_name_clean = tenant_name.replace(" ", "")
+                    cheapest_seller_name_clean = cheapest_seller_name.replace(" ", "")
+                    
+                    # Tenant name ile satıcı adı eşleşiyor mu?
+                    if tenant_name_clean in cheapest_seller_name_clean or cheapest_seller_name_clean in tenant_name_clean:
+                        is_cheapest_us = True
+                        
+                    if is_cheapest_us:
+                        # Biz en ucuzuz, rakipsiziz
+                        product.is_expensive = 0
+                        product.cheapest_competitor_name = cheapest["seller_name"]
+                        product.cheapest_competitor_price = cheapest["price"]
+                    else:
+                        # Bizden daha ucuzu var!
+                        product.is_expensive = 1
+                        product.cheapest_competitor_name = cheapest["seller_name"]
+                        product.cheapest_competitor_price = cheapest["price"]
+                        
                     product.competitors_json = json.dumps(competitors, ensure_ascii=False)
                     product.last_repricing_check = datetime.now(timezone.utc)
-                    product.cheapest_competitor_price = 0
-                    product.cheapest_competitor_name = ""
-                    product.is_expensive = 0
-                    our_current_cart_price = competitors[0]["price"]
-                    product.our_cart_price = our_current_cart_price
-                    db.add(product)
-                    await db.commit()
-                    continue
-                    
-                # Rakipler zaten küçükten büyüğe sıralı
-                cheapest = competitors[0]
-                second_cheapest = competitors[1]
-                
-                # En ucuz biz miyiz kontrolü
-                is_cheapest_us = False
-                cheapest_seller_name = cheapest["seller_name"].lower().strip()
-                tenant_name_clean = tenant_name.replace(" ", "")
-                cheapest_seller_name_clean = cheapest_seller_name.replace(" ", "")
-                
-                # Tenant name ile satıcı adı eşleşiyor mu?
-                if tenant_name_clean in cheapest_seller_name_clean or cheapest_seller_name_clean in tenant_name_clean:
-                    is_cheapest_us = True
-                
-                # Bizim kendi mağazamızın anlık bilgilerini scraper sonucundan bul (Sepet fiyatımızı göstermek için)
-                our_product_info = None
-                for c in competitors:
-                    c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
-                    if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
-                        our_product_info = c
-                        break
+                    # N11 sepet fiyatımızı da kendi mağazamızdan bul
+                    our_price_in_n11 = 0
+                    our_product_info = None
+                    for c in competitors:
+                        c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
+                        if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
+                            our_product_info = c
+                            our_price_in_n11 = c["price"]
+                            break
+                            
+                    our_current_cart_price = float(product.price)
+                    if our_product_info:
+                        our_current_cart_price = our_product_info["price"]
                         
-                our_current_cart_price = float(product.price)
-                if our_product_info:
-                    our_current_cart_price = our_product_info["price"]
-                
-                product.is_expensive = 1 if not is_cheapest_us else 0
-                product.our_cart_price = our_current_cart_price
-                
-                if is_cheapest_us:
-                    product.cheapest_competitor_price = second_cheapest["price"]
-                    product.cheapest_competitor_name = second_cheapest["seller_name"]
-                else:
-                    product.cheapest_competitor_price = cheapest["price"]
-                    product.cheapest_competitor_name = cheapest["seller_name"]
+                    product.is_expensive = 1 if not is_cheapest_us else 0
+                    product.our_cart_price = our_current_cart_price
                     
-                product.competitors_json = json.dumps(competitors, ensure_ascii=False)
-                product.last_repricing_check = datetime.now(timezone.utc)
-                
-                db.add(product)
+                    if is_cheapest_us:
+                        product.cheapest_competitor_price = second_cheapest["price"]
+                        product.cheapest_competitor_name = second_cheapest["seller_name"]
+                    else:
+                        product.cheapest_competitor_price = cheapest["price"]
+                        product.cheapest_competitor_name = cheapest["seller_name"]
+                        
+                    product.competitors_json = json.dumps(competitors, ensure_ascii=False)
+                    product.last_repricing_check = datetime.now(timezone.utc)
+                    
+                    db.add(product)
                     
         await db.commit()
     logger.info("[Repricing] N11 Veri Toplama ve Analiz tamamlandı.")
