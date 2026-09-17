@@ -63,6 +63,7 @@ async def update_product(
 
     # Fiyat Güncellemesi
     if data.price is not None:
+        old_price = float(product.price) if product.price else 0.0
         product.price = data.price
         
         # UI'da anında yansıması için (yaklaşık bir) cart_price ve is_expensive hesabı
@@ -86,8 +87,16 @@ async def update_product(
                         cheapest_other = min(other_comps, key=lambda x: x["price"])
                         product.cheapest_competitor_price = cheapest_other["price"]
                         product.cheapest_competitor_name = cheapest_other["seller_name"]
-                        product.our_cart_price = float(data.price)
-                        product.is_expensive = 1 if float(data.price) > cheapest_other["price"] else 0
+                        
+                        # Eğer N11 tarafından uygulanan bir indirim varsa (our_cart_price < old_price), bu oranı koru
+                        discount_multiplier = 1.0
+                        if old_price > 0 and product.our_cart_price and product.our_cart_price < old_price:
+                            discount_multiplier = product.our_cart_price / old_price
+                            
+                        new_cart_price = float(data.price) * discount_multiplier
+                        product.our_cart_price = new_cart_price
+                        
+                        product.is_expensive = 1 if new_cart_price > cheapest_other["price"] else 0
                     else:
                         product.is_expensive = 0
             except:
