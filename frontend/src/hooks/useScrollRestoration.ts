@@ -21,6 +21,7 @@ export function useScrollRestoration(storageKey: string, dependencies: any[]) {
     return () => {
       window.removeEventListener('scroll', handleScroll);
       clearTimeout(timeoutId);
+      sessionStorage.removeItem(storageKey); // Sadece sayfa değiştiğinde (unmount) temizle, F5'te temizlenmez
     };
   }, [storageKey]);
 
