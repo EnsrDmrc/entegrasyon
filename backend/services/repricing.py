@@ -51,13 +51,19 @@ async def run_n11_repricing():
             
             tenant_name = tenant.name.lower().strip()
             
-            # Bu tenant'ın tüm ürünlerini bul (URL'si olmayanları da)
+            # Bu tenant'ın sadece N11 URL'si olan ürünlerini bul
             products_res = await db.execute(
                 select(Product).where(
-                    Product.tenant_id == tenant.id
+                    Product.tenant_id == tenant.id,
+                    Product.n11_url != None,
+                    Product.n11_url != ""
                 )
             )
             products = products_res.scalars().all()
+            
+            if not products:
+                logger.info(f"[Repricing] Tenant {tenant.name} için N11 URL'si girilmiş ürün bulunamadı.")
+                continue
             
             # N11 Adapter'ı hazırla (Fiyat güncellemek için)
             adapter = N11Adapter(api_key=integration.api_key, api_secret=integration.api_secret)

@@ -27,9 +27,7 @@ class N11Scraper:
             }
             
             # Parametreleri temizle (?magaza= vs gibi) aksi takdirde N11 o mağazayı ana satıcı yapar ve en ucuzu gizler
-            if '?' in url and not ('/arama?' in url or '/kampanya?' in url):
-                url = url.split('?')[0]
-                
+            # Do not strip query parameters, as they are needed for variants (e.g. ?secenekler=...)
             resp = requests.get(url, headers=headers, impersonate="chrome110", timeout=15.0)
             if resp.status_code != 200:
                 print(f"[N11Scraper] HTTP Hatası: {resp.status_code} - URL: {url}")
