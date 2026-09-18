@@ -165,8 +165,9 @@ function RepricingReportContent() {
   const pahali: any[] = [];
 
   const searchedProducts = products.filter(p => 
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.sku?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    getStockFromInventories(p) > 0
   );
 
   searchedProducts.forEach(p => {
