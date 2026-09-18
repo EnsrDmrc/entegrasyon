@@ -21,8 +21,26 @@ export default function RepricingReportPage() {
   const [syncing, setSyncing] = useState<{ [id: number]: boolean }>({});
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const navEntries = window.performance.getEntriesByType('navigation');
+      const isReload = navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === 'reload';
+      
+      if (isReload) {
+        const savedTab = sessionStorage.getItem('repricingActiveTab');
+        if (savedTab && ['rakipsiz', 'ucuz', 'pahali'].includes(savedTab)) {
+          setActiveTab(savedTab as any);
+        }
+      } else {
+        sessionStorage.removeItem('repricingActiveTab');
+      }
+    }
     fetchProducts();
   }, []);
+
+  const handleTabChange = (tab: 'rakipsiz' | 'ucuz' | 'pahali') => {
+    setActiveTab(tab);
+    sessionStorage.setItem('repricingActiveTab', tab);
+  };
 
   useScrollRestoration('repricingScrollPos', [loading, products.length]);
 
@@ -241,7 +259,7 @@ export default function RepricingReportPage() {
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid #e2e8f0' }}>
         <button 
-          onClick={() => setActiveTab('pahali')}
+          onClick={() => handleTabChange('pahali')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -254,7 +272,7 @@ export default function RepricingReportPage() {
           Pahalı Kaldıklarımız ({pahali.length})
         </button>
         <button 
-          onClick={() => setActiveTab('ucuz')}
+          onClick={() => handleTabChange('ucuz')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -267,7 +285,7 @@ export default function RepricingReportPage() {
           En Ucuz Biziz ({ucuz.length})
         </button>
         <button 
-          onClick={() => setActiveTab('rakipsiz')}
+          onClick={() => handleTabChange('rakipsiz')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
