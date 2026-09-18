@@ -1,17 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/utils/api';
 import { Trophy, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Save, Search, RefreshCw } from 'lucide-react';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
-export default function RepricingReportPage() {
+function RepricingReportContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialTab = (tabParam === 'rakipsiz' || tabParam === 'ucuz' || tabParam === 'pahali') ? tabParam : 'pahali';
+
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'rakipsiz' | 'ucuz' | 'pahali'>('pahali');
+  const [activeTab, setActiveTab] = useState<'rakipsiz' | 'ucuz' | 'pahali'>(initialTab);
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
   const [updateProduct, setUpdateProduct] = useState<number | null>(null);
 
@@ -23,6 +29,17 @@ export default function RepricingReportPage() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (tabParam && ['rakipsiz', 'ucuz', 'pahali'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: 'rakipsiz' | 'ucuz' | 'pahali') => {
+    setActiveTab(tab);
+    router.replace(`/dashboard/repricing-report?tab=${tab}`);
+  };
 
   useScrollRestoration('repricingScrollPos', [loading, products.length]);
 
@@ -241,7 +258,7 @@ export default function RepricingReportPage() {
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid #e2e8f0' }}>
         <button 
-          onClick={() => setActiveTab('pahali')}
+          onClick={() => handleTabChange('pahali')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -254,7 +271,7 @@ export default function RepricingReportPage() {
           Pahalı Kaldıklarımız ({pahali.length})
         </button>
         <button 
-          onClick={() => setActiveTab('ucuz')}
+          onClick={() => handleTabChange('ucuz')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -267,7 +284,7 @@ export default function RepricingReportPage() {
           En Ucuz Biziz ({ucuz.length})
         </button>
         <button 
-          onClick={() => setActiveTab('rakipsiz')}
+          onClick={() => handleTabChange('rakipsiz')}
           style={{ 
             padding: '1rem 2rem', border: 'none', background: 'transparent', cursor: 'pointer',
             fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -438,5 +455,13 @@ export default function RepricingReportPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RepricingReportPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Rapor Yükleniyor...</div>}>
+      <RepricingReportContent />
+    </Suspense>
   );
 }
