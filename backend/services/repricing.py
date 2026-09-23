@@ -100,9 +100,6 @@ async def run_n11_repricing():
                     if 'magaza' in qs:
                         del qs['magaza']
                     
-                    tenant_name_clean_for_url = tenant_name.replace(" ", "")
-                    qs['magaza'] = [tenant_name_clean_for_url]
-                    
                     new_query = urlencode(qs, doseq=True)
                     clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
                     
@@ -111,11 +108,49 @@ async def run_n11_repricing():
             for clean_url, grouped_products in url_to_products.items():
                 logger.info(f"[Repricing] Taranan URL: {clean_url} ({len(grouped_products)} ürün bu linki kullanıyor)")
                 
-
+                # 1. Tüm rakipleri bulmak için magaza etiketi OLMADAN tara
                 competitors = scraper.get_competitors(clean_url)
+                
+                # 2. KENDİ mağazamızın SEPETTE indirimini garantiye almak için magaza etiketi İLE tara
+                tenant_name_clean_for_url = tenant_name.replace(" ", "").replace("ı", "i").replace("ğ", "g").replace("ş", "s").replace("ü", "u").replace("ö", "o").replace("ç", "c")
+                our_url = clean_url + ("&" if "?" in clean_url else "?") + f"magaza={tenant_name_clean_for_url}"
+                our_competitors = scraper.get_competitors(our_url)
                 
                 # N11 rate limiting'den kaçınmak için her linkten sonra bekle
                 await asyncio.sleep(2)
+                
+                # 3. Kendi fiyatımızı ana listeye yansıt
+                tenant_name_clean = tenant_name.replace(" ", "")
+                our_store_price = None
+                our_store_discount = 0.0
+                
+                for c in our_competitors:
+                    c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
+                    if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
+                        our_store_price = c["price"]
+                        our_store_discount = c.get("discount_rate", 0.0)
+                        break
+                        
+                if our_store_price is not None:
+                    found_us = False
+                    for c in competitors:
+                        c_name_clean = c["seller_name"].lower().strip().replace(" ", "")
+                        if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
+                            c["price"] = our_store_price
+                            if "discount_rate" in c:
+                                c["discount_rate"] = our_store_discount
+                            found_us = True
+                            break
+                    if not found_us:
+                        competitors.append({
+                            "seller_name": tenant_name,
+                            "price": our_store_price,
+                            "discount_rate": our_store_discount,
+                            "stock": 1
+                        })
+                        
+                # Rakipleri fiyata göre yeniden sırala
+                competitors.sort(key=lambda x: x["price"])
                 
                 for product in grouped_products:
                     if not competitors:

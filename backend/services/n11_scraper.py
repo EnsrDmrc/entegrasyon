@@ -160,7 +160,7 @@ class N11Scraper:
                                     bp_text = basket_elem.text.strip().replace("TL", "").strip().replace(".", "").replace(",", ".")
                                     try:
                                         bp_val = float(bp_text)
-                                        if bp_val > 0 and bp_val < cart_price:
+                                        if bp_val > 0 and (cart_price == 0.0 or bp_val < cart_price):
                                             cart_price = bp_val
                                     except:
                                         pass
@@ -178,7 +178,7 @@ class N11Scraper:
                                                     s = txt.replace("TL", "").strip().replace(".", "").replace(",", ".")
                                                     try:
                                                         bp_val = float(s)
-                                                        if bp_val > 0 and bp_val < cart_price:
+                                                        if bp_val > 0 and (cart_price == 0.0 or bp_val < cart_price):
                                                             cart_price = bp_val
                                                     except: pass
                                 
