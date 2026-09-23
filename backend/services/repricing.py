@@ -65,8 +65,7 @@ async def run_n11_repricing():
                 logger.info(f"[Repricing] Tenant {tenant.name} için N11 URL'si girilmiş ürün bulunamadı.")
                 continue
             
-            # N11 Adapter'ı hazırla (Fiyat güncellemek için)
-            adapter = N11Adapter(api_key=integration.api_key, api_secret=integration.api_secret)
+            # N11 Adapter kullanılmadığı için (sadece scraping yapıldığı için) Zeep WSDL hatasını engellemek adına kaldırıldı.
             
             # Group products by clean_url to optimize scraping
             from collections import defaultdict
