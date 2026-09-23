@@ -324,7 +324,7 @@ function RepricingReportContent() {
                   <div style={{ flex: '2', minWidth: '200px' }}>
                     <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>
                       {product.n11_url ? (
-                        <a href={product.n11_url} target="_blank" rel="noopener noreferrer" style={{ color: '#0f172a', textDecoration: 'none' }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}>
+                        <a href={product.n11_url.includes('magaza=') ? product.n11_url : (product.n11_url + (product.n11_url.includes('?') ? '&' : '?') + 'magaza=saygingrup')} target="_blank" rel="noopener noreferrer" style={{ color: '#0f172a', textDecoration: 'none' }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}>
                           {product.name}
                         </a>
                       ) : (

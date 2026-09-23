@@ -99,6 +99,10 @@ async def run_n11_repricing():
                     qs = parse_qs(parsed.query)
                     if 'magaza' in qs:
                         del qs['magaza']
+                    
+                    tenant_name_clean_for_url = tenant_name.replace(" ", "")
+                    qs['magaza'] = [tenant_name_clean_for_url]
+                    
                     new_query = urlencode(qs, doseq=True)
                     clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
                     
@@ -107,12 +111,7 @@ async def run_n11_repricing():
             for clean_url, grouped_products in url_to_products.items():
                 logger.info(f"[Repricing] Taranan URL: {clean_url} ({len(grouped_products)} ürün bu linki kullanıyor)")
                 
-                # DB'deki hatalı/eksik URL'yi kalıcı olarak düzelt
-                for product in grouped_products:
-                    if clean_url != product.n11_url:
-                        product.n11_url = clean_url
-                        db.add(product)
-                        
+
                 competitors = scraper.get_competitors(clean_url)
                 
                 # N11 rate limiting'den kaçınmak için her linkten sonra bekle

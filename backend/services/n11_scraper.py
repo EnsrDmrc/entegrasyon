@@ -153,10 +153,40 @@ class N11Scraper:
                             # Ana ürünü ekle (Eğer satıcı varsa)
                             if seller_name:
                                 cart_price, base_price, disc_rate = parse_product_discount(p)
+                                
+                                # SEPETTE indirimi için HTML'i kontrol et
+                                basket_elem = soup.select_one('.basketPrice .price, .basket-price .price, .campaign-price, .priceDetail .newPrice, .basket-discount-price')
+                                if basket_elem:
+                                    bp_text = basket_elem.text.strip().replace("TL", "").strip().replace(".", "").replace(",", ".")
+                                    try:
+                                        bp_val = float(bp_text)
+                                        if bp_val > 0 and bp_val < cart_price:
+                                            cart_price = bp_val
+                                    except:
+                                        pass
+                                else:
+                                    # Alternatif olarak SEPETTE yazısı arayalım
+                                    import re
+                                    sepette_div = soup.find(string=re.compile("SEPETTE", re.IGNORECASE))
+                                    if sepette_div and sepette_div.parent:
+                                        parent = sepette_div.parent.find_parent("div")
+                                        if parent:
+                                            price_spans = parent.select('span, ins, .price')
+                                            for span in price_spans:
+                                                txt = span.text.strip()
+                                                if "TL" in txt and not "SEPETTE" in txt.upper():
+                                                    s = txt.replace("TL", "").strip().replace(".", "").replace(",", ".")
+                                                    try:
+                                                        bp_val = float(s)
+                                                        if bp_val > 0 and bp_val < cart_price:
+                                                            cart_price = bp_val
+                                                    except: pass
+                                
                                 stock_val = int(p.get("stockAmount", p.get("quantity", p.get("maxQuantity", 0))))
                                 competitors.append({
                                     "seller_name": str(seller_name).strip(),
                                     "price": float(cart_price),
+                                    "base_price": float(base_price),
                                     "discount_rate": disc_rate,
                                     "stock": stock_val
                                 })
