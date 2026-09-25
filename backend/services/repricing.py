@@ -234,14 +234,17 @@ async def run_n11_repricing():
 
 async def repricing_loop():
     """
-    Arka planda sürekli çalışarak her gece saat 03:00'da repricing görevini tetikler.
+    Arka planda sürekli çalışarak her 6 saatte bir (00:00, 06:00, 12:00, 18:00) repricing görevini tetikler.
     """
-    logger.info("[Repricing] Döngü başlatıldı. Görev her gece 03:00'da çalışacak.")
+    logger.info("[Repricing] Döngü başlatıldı. Görev her 6 saatte bir çalışacak.")
     while True:
         now = datetime.now()
-        target = now.replace(hour=3, minute=0, second=0, microsecond=0)
-        if target <= now:
-            target += timedelta(days=1)
+        next_hour = ((now.hour // 6) + 1) * 6
+        
+        if next_hour >= 24:
+            target = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        else:
+            target = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
             
         wait_seconds = (target - now).total_seconds()
         logger.info(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var ({target}).")
