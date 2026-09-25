@@ -228,9 +228,15 @@ class N11Adapter(MarketplaceAdapter):
             'appKey': api_key.strip(),
             'appSecret': api_secret.strip()
         }
+        import os
+        from pathlib import Path
+        base_dir = Path(__file__).parent.absolute()
+        product_wsdl = (base_dir / 'wsdl' / 'ProductService.wsdl').as_uri()
+        order_wsdl = (base_dir / 'wsdl' / 'OrderService.wsdl').as_uri()
+        
         settings = Settings(strict=False, xsd_ignore_sequence_order=True)
-        self.product_client = zeep.Client('https://api.n11.com/ws/ProductService.wsdl', settings=settings)
-        self.order_client = zeep.Client('https://api.n11.com/ws/OrderService.wsdl', settings=settings)
+        self.product_client = zeep.Client(product_wsdl, settings=settings)
+        self.order_client = zeep.Client(order_wsdl, settings=settings)
         
     def get_product_details(self, sku: str) -> dict:
         try:
@@ -624,7 +630,7 @@ class HepsiburadaAdapter(MarketplaceAdapter):
                             "items": items
                         })
                 elif response.status_code in (401, 403):
-                    print("[Hepsiburada Order] Yetkilendirme hatası")
+                    pass
         except Exception as e:
             print(f"[Hepsiburada Order Sync Hatası]: {e}")
             
@@ -779,7 +785,7 @@ class TrendyolAdapter(MarketplaceAdapter):
                             "items": items
                         })
                 elif response.status_code in (401, 403):
-                    print("[Trendyol Order] Yetkilendirme hatası")
+                    pass
         except Exception as e:
             print(f"[Trendyol Order Sync Hatası]: {e}")
             
