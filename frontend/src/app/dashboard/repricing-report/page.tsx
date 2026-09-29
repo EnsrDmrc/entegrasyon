@@ -309,8 +309,16 @@ function RepricingReportContent() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {activeList.map(product => {
             const comps = parseCompetitors(product.competitors_json);
-            const us = comps.find((c: any) => c.is_us);
             const myCartPrice = product.our_cart_price || product.price;
+            let us = comps.find((c: any) => c.is_us);
+            if (!us) {
+              us = comps.find((c: any) => 
+                c.seller_name && c.seller_name.toLowerCase().includes('sayg')
+              );
+            }
+            if (!us) {
+              us = comps.find((c: any) => c.price === myCartPrice);
+            }
             const myBasePrice = us?.base_price || product.price;
             const diff = activeTab === 'pahali' ? (myCartPrice - (product.cheapest_competitor_price || 0)) : 0;
             const isExpanded = expandedProduct === product.id;
