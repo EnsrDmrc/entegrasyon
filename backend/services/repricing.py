@@ -128,6 +128,7 @@ async def run_n11_repricing():
                     if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
                         our_store_price = c["price"]
                         our_store_discount = c.get("discount_rate", 0.0)
+                        our_store_base = c.get("base_price", our_store_price)
                         break
                         
                 if our_store_price is not None:
@@ -138,14 +139,18 @@ async def run_n11_repricing():
                             c["price"] = our_store_price
                             if "discount_rate" in c:
                                 c["discount_rate"] = our_store_discount
+                            c["base_price"] = our_store_base
+                            c["is_us"] = True
                             found_us = True
                             break
                     if not found_us:
                         competitors.append({
                             "seller_name": tenant_name,
                             "price": our_store_price,
+                            "base_price": our_store_base,
                             "discount_rate": our_store_discount,
-                            "stock": 1
+                            "stock": 1,
+                            "is_us": True
                         })
                         
                 # Rakipleri fiyata göre yeniden sırala
@@ -208,6 +213,7 @@ async def run_n11_repricing():
                         if tenant_name_clean in c_name_clean or c_name_clean in tenant_name_clean:
                             our_product_info = c
                             our_price_in_n11 = c["price"]
+                            c["is_us"] = True
                             break
                             
                     our_current_cart_price = float(product.price)

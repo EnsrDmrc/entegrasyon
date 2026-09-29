@@ -309,8 +309,9 @@ function RepricingReportContent() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {activeList.map(product => {
             const comps = parseCompetitors(product.competitors_json);
+            const us = comps.find((c: any) => c.is_us);
             const myCartPrice = product.our_cart_price || product.price;
-            const myBasePrice = product.price;
+            const myBasePrice = us?.base_price || product.price;
             const diff = activeTab === 'pahali' ? (myCartPrice - (product.cheapest_competitor_price || 0)) : 0;
             const isExpanded = expandedProduct === product.id;
             const currentStock = getStockFromInventories(product);
@@ -341,7 +342,7 @@ function RepricingReportContent() {
                     </div>
                     {hasDiscount && (
                       <div style={{ fontSize: '0.75rem', color: '#8b5cf6', fontWeight: 600, marginTop: '0.2rem' }}>
-                        *N11 İndirimi Var (Liste: {myBasePrice} TL)
+                        *N11 İndirimi Var (Liste: {myBasePrice.toLocaleString('tr-TR')} TL)
                       </div>
                     )}
                   </div>
