@@ -138,8 +138,9 @@ class N11Scraper:
                                 raw_price = parse_price(prod_obj.get("price"))
                                 raw_display = parse_price(prod_obj.get("displayPrice"))
                                 raw_final = parse_price(prod_obj.get("finalPrice"))
+                                raw_old = parse_price(prod_obj.get("oldPrice"))
                                 
-                                prices = [p for p in [raw_price, raw_display, raw_final] if p > 0]
+                                prices = [p for p in [raw_price, raw_display, raw_final, raw_old] if p > 0]
                                 if not prices:
                                     return 0.0, 0.0, 0.0
                                     
