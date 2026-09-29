@@ -341,6 +341,10 @@ function RepricingReportContent() {
                       )}
                     </div>
                     <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#475569' }}>{product.sku}</span>
+                    {/* Geçici Debug Bilgisi */}
+                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
+                      DB Fiyatı: {product.price} | Sepet: {myCartPrice} | Liste: {myBasePrice} | US: {us ? 'Var' : 'Yok'}
+                    </div>
                   </div>
 
                   <div style={{ flex: '1' }}>
