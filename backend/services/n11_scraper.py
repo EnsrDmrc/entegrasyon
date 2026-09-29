@@ -135,11 +135,17 @@ class N11Scraper:
                                 return 0.0
                                 
                             def parse_product_discount(prod_obj):
-                                base_price = parse_price(prod_obj.get("price"))
-                                cart_price = parse_price(prod_obj.get("displayPrice") or prod_obj.get("price"))
+                                raw_price = parse_price(prod_obj.get("price"))
+                                raw_display = parse_price(prod_obj.get("displayPrice"))
+                                raw_final = parse_price(prod_obj.get("finalPrice"))
                                 
-                                # displayPrice genellikle sepetteki son fiyattır. Eğer displayPrice yoksa
-                                # ve campaignPrice varsa onu kullanırız.
+                                prices = [p for p in [raw_price, raw_display, raw_final] if p > 0]
+                                if not prices:
+                                    return 0.0, 0.0, 0.0
+                                    
+                                cart_price = min(prices)
+                                base_price = max(prices)
+                                
                                 campaign_price_raw = prod_obj.get("campaignPrice")
                                 if campaign_price_raw:
                                     try:
