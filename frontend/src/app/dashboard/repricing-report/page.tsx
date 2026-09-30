@@ -319,7 +319,8 @@ function RepricingReportContent() {
             if (!us) {
               us = comps.find((c: any) => c.price === myCartPrice);
             }
-            const myBasePrice = us?.base_price || product.price;
+            // Eğer bot N11'den liste fiyatını çekemediyse (veya sepetle aynıysa), veritabanındaki ERP fiyatını (product.price) liste fiyatı olarak kabul et
+            const myBasePrice = (us?.base_price && us.base_price > myCartPrice) ? us.base_price : product.price;
             const diff = activeTab === 'pahali' ? (myCartPrice - (product.cheapest_competitor_price || 0)) : 0;
             const isExpanded = expandedProduct === product.id;
             const currentStock = getStockFromInventories(product);
