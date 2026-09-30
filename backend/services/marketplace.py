@@ -326,10 +326,10 @@ class N11Adapter(MarketplaceAdapter):
                         
                     name = prod.title if hasattr(prod, 'title') and prod.title else ''
                     price = 0.0
-                    if hasattr(prod, 'displayPrice') and prod.displayPrice is not None:
-                        price = float(prod.displayPrice)
-                    elif hasattr(prod, 'price') and prod.price is not None:
+                    if hasattr(prod, 'price') and prod.price is not None:
                         price = float(prod.price)
+                    elif hasattr(prod, 'displayPrice') and prod.displayPrice is not None:
+                        price = float(prod.displayPrice)
                         
                     qty = 0
                     if hasattr(prod, 'stockItems') and prod.stockItems:
@@ -566,7 +566,7 @@ class HepsiburadaAdapter(MarketplaceAdapter):
                         fetched_variants.append({
                             "sku": sku,
                             "name": item.get("hbSkuTitle", f"Hepsiburada Ürünü - {sku}"),
-                            "price": float(item.get("price", 0.0)),
+                            "price": float(item.get("originalPrice") or item.get("listPrice") or item.get("price", 0.0)),
                             "quantity": int(item.get("availableInventory", 0)),
                             "marketplace": "hepsiburada"
                         })
@@ -711,7 +711,7 @@ class TrendyolAdapter(MarketplaceAdapter):
                         fetched_variants.append({
                             "sku": sku,
                             "name": item.get("title", f"Trendyol Ürünü - {sku}"),
-                            "price": float(item.get("salePrice", 0.0)),
+                            "price": float(item.get("listPrice") or item.get("salePrice", 0.0)),
                             "quantity": int(item.get("quantity", 0)),
                             "marketplace": "trendyol"
                         })
@@ -948,8 +948,8 @@ class PazaramaAdapter(MarketplaceAdapter):
                 break
                 
             for item in items:
-                # Fiyat ve stok alanları farklı dökümanlarda farklı olabiliyor (salePrice, listPrice, stock, stockCount)
-                price = item.get("salePrice") or item.get("listPrice") or item.get("price") or 0.0
+                # İndirimli fiyat (salePrice) yerine liste fiyatını (listPrice) baz alıyoruz
+                price = item.get("listPrice") or item.get("price") or item.get("salePrice") or 0.0
                 stock = item.get("stockCount") or item.get("stock") or item.get("quantity") or 0
                 all_products.append({
                     'sku': str(item.get("code") or item.get("Code") or item.get("barcode") or item.get("id") or ""),
