@@ -212,6 +212,7 @@ class N11Scraper:
                                     competitors.append({
                                         "seller_name": str(s_name).strip(),
                                         "price": float(s_cart),
+                                        "base_price": float(s_base),
                                         "discount_rate": s_disc,
                                         "stock": s_stock
                                     })
@@ -247,6 +248,7 @@ class N11Scraper:
                         competitors.append({
                             "seller_name": s_name,
                             "price": price_val,
+                            "base_price": price_val,
                             "discount_rate": 0.0,
                             "stock": 0 # HTML parsing'den stock zor çıkar
                         })
