@@ -445,7 +445,6 @@ function RepricingReportContent() {
                           <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Satıcı Adı</th>
                           <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Sepet Fiyatı</th>
                           <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Liste Fiyatı</th>
-                          <th style={{ padding: '0.75rem', textAlign: 'left', color: '#475569', fontSize: '0.85rem' }}>Stok</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -454,11 +453,10 @@ function RepricingReportContent() {
                             <td style={{ padding: '0.75rem', fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{c.seller_name}</td>
                             <td style={{ padding: '0.75rem', fontSize: '0.9rem', color: '#16a34a', fontWeight: 700 }}>{c.price.toLocaleString('tr-TR')} TL</td>
                             <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#64748b' }}>{c.base_price ? c.base_price.toLocaleString('tr-TR') + ' TL' : '-'}</td>
-                            <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}>{c.stock ? c.stock + ' Adet' : 'Bilinmiyor'}</td>
                           </tr>
                         ))}
                         {comps.length === 0 && (
-                          <tr><td colSpan={4} style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Rakip bilgisi bulunamadı.</td></tr>
+                          <tr><td colSpan={3} style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Rakip bilgisi bulunamadı.</td></tr>
                         )}
                       </tbody>
                     </table>
