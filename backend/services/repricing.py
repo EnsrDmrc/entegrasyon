@@ -9,7 +9,13 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests as curl_requests
 from sqlalchemy.future import select
 
-logger = logging.getLogger("uvicorn.error")
+import sys
+logger = logging.getLogger("repricing")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+    logger.addHandler(handler)
 from core.database import AsyncSessionLocal
 from models.product import Product
 from models.inventory import Inventory
