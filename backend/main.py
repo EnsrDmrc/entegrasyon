@@ -8,6 +8,7 @@ import asyncio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from services.patrol import order_patrol_loop
+    from services.repricing import repricing_loop
     from core.database import AsyncSessionLocal
     from sqlalchemy import text
     
@@ -91,8 +92,8 @@ async def lifespan(app: FastAPI):
 
     # Uygulama başladığında devriyeyi arka plan görevi olarak başlat
     task = asyncio.create_task(order_patrol_loop())
-    # Geçici olarak otomatik repricing durduruldu (kullanıcı talebi)
-    # repricing_task = asyncio.create_task(repricing_loop())
+    # Otomatik repricing görevi (6 saatte bir)
+    repricing_task = asyncio.create_task(repricing_loop())
     yield
     # Kapanışta iptal et (isterseniz task.cancel() eklenebilir)
 
