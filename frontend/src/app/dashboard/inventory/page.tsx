@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/utils/api';
-import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 function InventoryContent() {
   const [products, setProducts] = useState<any[]>([]);
@@ -23,7 +22,6 @@ function InventoryContent() {
     else if (filter === 'out_of_stock') setStatusFilter('out_of_stock');
   }, [filter]);
 
-  useScrollRestoration('inventoryScrollPos', [loading, products.length]);
 
   const fetchProducts = async (silent = false) => {
     if (!silent) setLoading(true);

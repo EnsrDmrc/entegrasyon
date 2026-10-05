@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/utils/api';
-import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 export default function DashboardOverview() {
   const [productCount, setProductCount] = useState(0);
@@ -12,7 +11,6 @@ export default function DashboardOverview() {
   const [activeOrderCount, setActiveOrderCount] = useState(0);
   const [activeOrdersList, setActiveOrdersList] = useState<any[]>([]);
 
-  useScrollRestoration('dashboardScrollPos', [productCount, activeOrderCount]);
 
   const router = useRouter();
 

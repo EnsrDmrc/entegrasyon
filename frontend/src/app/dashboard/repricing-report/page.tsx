@@ -4,7 +4,6 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/utils/api';
 import { Trophy, TrendingUp, AlertTriangle, ChevronDown, ChevronUp, Save, Search, RefreshCw } from 'lucide-react';
-import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 function RepricingReportContent() {
   const router = useRouter();
@@ -40,8 +39,6 @@ function RepricingReportContent() {
     setActiveTab(tab);
     router.replace(`/dashboard/repricing-report?tab=${tab}`);
   };
-
-  useScrollRestoration('repricingScrollPos', [loading, products.length]);
 
   const triggerRepricing = async () => {
     try {
