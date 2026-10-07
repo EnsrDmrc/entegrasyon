@@ -250,7 +250,9 @@ async def repricing_loop():
     """
     logger.info("[Repricing] Döngü başlatıldı. Görev her 6 saatte bir çalışacak.")
     while True:
-        now = datetime.now()
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo("Europe/Istanbul")
+        now = datetime.now(tz)
         next_hour = ((now.hour // 6) + 1) * 6
         
         if next_hour >= 24:
@@ -259,7 +261,7 @@ async def repricing_loop():
             target = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
             
         wait_seconds = (target - now).total_seconds()
-        logger.info(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var ({target}).")
+        logger.info(f"[Repricing] Bir sonraki taramaya {int(wait_seconds)} saniye var (Hedef TR Saati: {target.strftime('%Y-%m-%d %H:%M:%S')}).")
         
         # O saat gelene kadar bekle
         await asyncio.sleep(wait_seconds)
